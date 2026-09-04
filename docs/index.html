@@ -16,6 +16,14 @@
 </head>
 <body>
     <div class="app-wrapper">
+        <div id="toastNotification" class="toast-popup">
+            <i class="fa-solid fa-circle-check toast-icon"></i>
+            <div class="toast-content">
+                <strong id="toastTitle">File Processed</strong>
+                <span id="toastMsg">Ready for diagnostic inference</span>
+            </div>
+        </div>
+
         <header class="top-nav">
             <div class="nav-brand">
                 <div class="brand-logo"><i class="fa-solid fa-heart-pulse pulse-anim"></i></div>
@@ -33,7 +41,7 @@
             </nav>
             <div class="nav-actions">
                 <div class="status-indicator online"><span class="dot"></span><span class="status-label">FL Cluster Active</span></div>
-                <a href="https://github.com/Md-SAMI-7/ECG-FL-XAI" target="_blank" class="github-btn" title="View Source on GitHub"><i class="fa-brands fa-github"></i></a>
+                <a href="https://github.com/Md-SAMI-7/CardioSight" target="_blank" class="github-btn" title="View Source on GitHub"><i class="fa-brands fa-github"></i></a>
             </div>
         </header>
 
@@ -59,13 +67,22 @@
                 <div class="studio-grid">
                     <div class="studio-sidebar">
                         <div class="card upload-card">
-                            <div class="card-header"><h3><i class="fa-solid fa-file-waveform"></i> Ingest Patient Recording</h3></div>
-                            <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
-                                <input type="file" id="fileInput" accept=".hea,.mat,.dat,.csv,.txt" style="display:none" onchange="handleFileUpload(event)">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-file-waveform"></i> Ingest Patient Recording</h3>
+                                <span class="badge badge-info" id="fileStatusBadge">Drag & Drop Ready</span>
+                            </div>
+                            
+                            <div class="dropzone" id="dropzone">
+                                <input type="file" id="fileInput" accept=".hea,.mat,.dat,.csv,.txt" style="display:none">
                                 <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
-                                <h4>Drop .hea / .mat / .csv files here</h4>
-                                <p>Supports PhysioNet CinC 2021 WFDB headers & signal tables</p>
-                                <span class="browse-btn">Browse Files</span>
+                                <h4 id="dropzoneTitle">Drop .hea / .mat / .csv / .txt files here</h4>
+                                <p id="dropzoneSub">Or click anywhere in this box to browse files</p>
+                                <div class="drop-btn-row">
+                                    <span class="browse-btn"><i class="fa-solid fa-folder-open"></i> Browse File</span>
+                                    <button type="button" class="sample-load-btn" onclick="event.stopPropagation(); loadSampleWFDBFile();">
+                                        <i class="fa-solid fa-vial"></i> Load Sample .HEA
+                                    </button>
+                                </div>
                             </div>
 
                             <div class="form-group mt-3">
@@ -256,18 +273,12 @@
                     </div>
 
                     <div class="card">
-                        <div class="card-header">
-                            <h3><i class="fa-solid fa-arrow-trend-up"></i> Training Convergence (30 Rounds)</h3>
-                            <span class="badge badge-info">Micro/Macro F1-Score</span>
-                        </div>
+                        <div class="card-header"><h3><i class="fa-solid fa-arrow-trend-up"></i> Training Convergence (30 Rounds)</h3><span class="badge badge-info">Micro/Macro F1-Score</span></div>
                         <div class="chart-wrapper"><canvas id="convergenceChart"></canvas></div>
                     </div>
 
                     <div class="card">
-                        <div class="card-header">
-                            <h3><i class="fa-solid fa-bullseye"></i> Hospital Generalization Comparison</h3>
-                            <span class="badge badge-primary">Test Partition F1</span>
-                        </div>
+                        <div class="card-header"><h3><i class="fa-solid fa-bullseye"></i> Hospital Generalization Comparison</h3><span class="badge badge-primary">Test Partition F1</span></div>
                         <div class="chart-wrapper"><canvas id="f1RadarChart"></canvas></div>
                     </div>
 
@@ -336,7 +347,7 @@
                             </div>
                         </div>
                         <div class="links-box mt-3">
-                            <a href="https://github.com/Md-SAMI-7/ECG-FL-XAI" target="_blank" class="btn btn-primary btn-block"><i class="fa-brands fa-github"></i> Open Project GitHub Repository</a>
+                            <a href="https://github.com/Md-SAMI-7/CardioSight" target="_blank" class="btn btn-primary btn-block"><i class="fa-brands fa-github"></i> Open Project GitHub Repository</a>
                         </div>
                     </div>
                 </div>
