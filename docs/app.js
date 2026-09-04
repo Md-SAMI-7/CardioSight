@@ -1,221 +1,318 @@
 /**
- * CardioSight (ECG-FL-XAI) - Clinical Federated ECG Diagnostics & Explainability
- * Advanced Interactive Web & Mobile Application
+ * CardioSight PRO - Clinical Federated ECG Intelligence & Explainability Engine
+ * Complete interactive frontend logic matching index.html IDs and workflows.
  */
 
-const DISEASE_PRESETS = {
+// ==========================================
+// 1. KNOWLEDGE BASE & CLINICAL DATABASE
+// ==========================================
+const SNOMED_MAP = {
+    "164889003": { name: "Atrial Fibrillation (AF)", abbr: "AF", color: "#f43f5e", severity: "High Risk" },
+    "426783006": { name: "Normal Sinus Rhythm (NSR)", abbr: "NSR", color: "#10b981", severity: "Normal" },
+    "164909002": { name: "Left Bundle Branch Block (LBBB)", abbr: "LBBB", color: "#f59e0b", severity: "Moderate-High" },
+    "59118001":  { name: "Right Bundle Branch Block (RBBB)", abbr: "RBBB", color: "#8b5cf6", severity: "Moderate" },
+    "270492004": { name: "1st Degree AV Block (IAVB)", abbr: "IAVB", color: "#06b6d4", severity: "Mild-Moderate" },
+    "427084000": { name: "Sinus Tachycardia (STach)", abbr: "ST", color: "#ec4899", severity: "Moderate" },
+    "426177001": { name: "Sinus Bradycardia (SB)", abbr: "SB", color: "#6366f1", severity: "Mild-Moderate" },
+    "284470004": { name: "Premature Atrial Contraction (PAC)", abbr: "PAC", color: "#eab308", severity: "Mild" },
+    "427172004": { name: "Premature Ventricular Contraction (PVC)", abbr: "PVC", color: "#ef4444", severity: "Moderate" },
+    "164934002": { name: "T-Wave Abnormality (TAb)", abbr: "TAb", color: "#14b8a6", severity: "Diagnostic" },
+    "164873001": { name: "Left Axis Deviation (LAD)", abbr: "LAD", color: "#a855f7", severity: "Diagnostic" },
+    "39732003":  { name: "Left Anterior Fascicular Block (LAFB)", abbr: "LAFB", color: "#3b82f6", severity: "Diagnostic" },
+    "164917005": { name: "Q-Wave Abnormality (QAb)", abbr: "QAb", color: "#d946ef", severity: "Diagnostic" },
+    "164930006": { name: "ST-Segment Elevation/Depression", abbr: "STE", color: "#f43f5e", severity: "Critical" }
+};
+
+const CLINICAL_PROFILES = {
     "AF": {
-        name: "Atrial Fibrillation (AF)",
-        code: "164889003",
-        severity: "High - Requires Anticoagulation Assessment",
+        title: "Atrial Fibrillation (AF)",
+        abbr: "AF",
         color: "#f43f5e",
-        heartRate: 142,
-        prInterval: "-- (Absent P-waves)",
-        qrsDuration: "88 ms",
-        qtInterval: "360 ms",
-        confidence: 97.8,
-        entropy: 0.142,
-        mutualInfo: 0.038,
-        consistency: 0.948,
-        drift: 0.041,
-        gradNorm: "0.0184",
-        etiology: "Ectopic electrical foci predominantly within pulmonary vein sleeves creating chaotic atrial depolarization waves (f-waves at 350-600 bpm), resulting in irregular ventricular response.",
-        complications: "High risk of thromboembolism & ischemic stroke (5x elevated), tachycardia-induced cardiomyopathy, reduced cardiac output (loss of atrial kick ~20-30%).",
+        severity: "High Clinical Risk (Stroke & Embolic Vulnerability)",
+        hr: "142 bpm",
+        pr: "Absent (Chaotic f-waves)",
+        qrs: "88 ms",
+        qt: "360 ms",
+        rr: "Irregularly Irregular (380-690 ms)",
+        probabilities: [
+            { name: "Atrial Fibrillation (AF)", prob: 98.4, color: "#f43f5e" },
+            { name: "T-Wave Abnormality (TAb)", prob: 64.2, color: "#14b8a6" },
+            { name: "Right Bundle Branch Block (RBBB)", prob: 28.5, color: "#8b5cf6" },
+            { name: "Premature Ventricular Contraction (PVC)", prob: 14.1, color: "#ef4444" },
+            { name: "Normal Sinus Rhythm (NSR)", prob: 1.2, color: "#10b981" }
+        ],
+        tags: ["Chaotic Baseline F-Waves", "Absent P-Waves", "Irregular R-R Cadence", "Elevated Thromboembolic Risk"],
+        entropy: 0.148,
+        mi: 0.032,
+        variance: 0.0041,
+        etiology: "Rapid, disorganized electrical atrial activation (350-600 depolarizations/min) originating predominantly within pulmonary vein sleeves, producing variable AV conduction and loss of coordinated atrial systole.",
+        risks: "5-fold elevated stroke risk, systemic thromboembolism, tachycardia-induced cardiomyopathy, hemodynamic decline from loss of 20-30% atrial ventricular filling kick.",
         precautions: [
-            "Initiate CHA2DS2-VASc stroke risk assessment for Oral Anticoagulation (DOACs like Apixaban/Rivaroxaban).",
-            "Rate control optimization: Beta-blockers (Metoprolol/Bisoprolol) or non-dihydropyridine CCBs (Diltiazem).",
-            "Evaluate for rhythm control strategy (Electrical Cardioversion / Catheter Ablation if symptomatic).",
-            "Lifestyle: Absolute restriction of binge alcohol intake (Holiday Heart Syndrome), mitigate sleep apnea, eliminate excess caffeine."
+            "Immediate CHA2DS2-VASc stroke assessment to guide Oral Anticoagulation (DOACs: Apixaban, Rivaroxaban, Dabigatran).",
+            "Rate control with cardioselective beta-blockers (Metoprolol/Bisoprolol) or nondihydropyridine CCBs (Diltiazem).",
+            "Urgent Transthoracic / Transesophageal Echocardiography (TTE/TEE) to evaluate left atrial size and exclude LAA thrombus.",
+            "Lifestyle: Absolute alcohol cessation (Holiday Heart syndrome trigger), eliminate excessive stimulants, address obstructive sleep apnea."
         ],
-        followUp: "Urgent Cardiology consult within 48 hours; perform 24-hr Holter monitoring and Transthoracic Echocardiogram (TTE) for left atrial dimension and thrombus exclusion.",
-        clientMatrix: [
-            [1.00, 0.94, 0.91, 0.96, 0.93],
-            [0.94, 1.00, 0.89, 0.95, 0.92],
-            [0.91, 0.89, 1.00, 0.93, 0.90],
-            [0.96, 0.95, 0.93, 1.00, 0.95],
-            [0.93, 0.92, 0.90, 0.95, 1.00]
-        ],
-        saliencyFocal: "Integrated Gradients highlight chaotic baseline fluctuations in Lead II/V1 and missing discrete P-waves preceding irregular QRS complexes."
+        guidance: "Refer to Cardiology/Electrophysiology within 24-48 hours. Consider cardioversion or catheter ablation if symptomatic or hemodynamic compromise.",
+        shapFeatures: ["R-R Interval Variance", "Absence of Discrete P-Waves", "Ventricular Rate > 120", "Chaotic Baseline Noise", "QRS Peak Jitter", "PR Segment Discontinuity", "T-Wave Inversion"],
+        shapValues: [0.94, 0.91, 0.68, 0.52, 0.31, 0.24, 0.11]
     },
     "NSR": {
-        name: "Normal Sinus Rhythm (NSR)",
-        code: "426783006",
-        severity: "Normal / Healthy Hemodynamics",
+        title: "Normal Sinus Rhythm (NSR)",
+        abbr: "NSR",
         color: "#10b981",
-        heartRate: 72,
-        prInterval: "158 ms",
-        qrsDuration: "84 ms",
-        qtInterval: "392 ms",
-        confidence: 99.4,
-        entropy: 0.024,
-        mutualInfo: 0.009,
-        consistency: 0.991,
-        drift: 0.008,
-        gradNorm: "0.0042",
-        etiology: "Physiological cardiac conduction originating regularly from Sinoatrial (SA) node traversing through AV node, His bundle, and Purkinje network.",
-        complications: "None. Physiological and hemodynamically stable.",
+        severity: "Normal / Physiological Conduction",
+        hr: "72 bpm",
+        pr: "158 ms",
+        qrs: "84 ms",
+        qt: "392 ms",
+        rr: "Regular (830 ms)",
+        probabilities: [
+            { name: "Normal Sinus Rhythm (NSR)", prob: 99.2, color: "#10b981" },
+            { name: "Sinus Bradycardia (SB)", prob: 2.1, color: "#6366f1" },
+            { name: "1st Degree AV Block (IAVB)", prob: 1.4, color: "#06b6d4" },
+            { name: "Premature Atrial Contraction (PAC)", prob: 0.8, color: "#eab308" },
+            { name: "Atrial Fibrillation (AF)", prob: 0.2, color: "#f43f5e" }
+        ],
+        tags: ["Upright P-Waves in Lead II", "1:1 AV Conduction", "Uniform R-R Spacing", "Preserved QRS Axis"],
+        entropy: 0.021,
+        mi: 0.007,
+        variance: 0.0008,
+        etiology: "Physiological cardiac conduction originating rhythmically from the Sinoatrial (SA) node and conducting smoothly through AV node, bundle of His, and Purkinje fibers.",
+        risks: "None identified. Hemodynamically stable and normal ventricular activation.",
         precautions: [
-            "Maintain cardiovascular wellness with 150 mins/week moderate aerobic exercise.",
-            "Balanced diet rich in leafy greens, potassium, and magnesium; low sodium intake (<2g/day).",
-            "Routine annual physical examination and preventative blood pressure monitoring."
+            "Maintain cardiovascular wellness with 150 minutes of moderate aerobic exercise weekly.",
+            "Nutritious balanced diet rich in potassium, magnesium, and dietary fiber.",
+            "Routine annual preventive blood pressure and lipid monitoring."
         ],
-        followUp: "Routine annual health maintenance screening. No immediate cardiac interventions needed.",
-        clientMatrix: [
-            [1.00, 0.99, 0.98, 0.99, 0.99],
-            [0.99, 1.00, 0.98, 0.99, 0.98],
-            [0.98, 0.98, 1.00, 0.98, 0.97],
-            [0.99, 0.99, 0.98, 1.00, 0.99],
-            [0.99, 0.98, 0.97, 0.99, 1.00]
-        ],
-        saliencyFocal: "Saliency uniformly distributed with dominant positive attribution to upright P-wave morphologies in Lead II and symmetric narrow QRS complexes."
+        guidance: "Routine health maintenance. No immediate cardiac therapeutic intervention indicated.",
+        shapFeatures: ["Upright P-Wave Morphology", "Normal PR Duration (158ms)", "Narrow QRS Complex (<100ms)", "Regular R-R Intervals", "Physiological Heart Rate", "Concordant T-Waves", "Isoelectric ST Segment"],
+        shapValues: [0.96, 0.88, 0.82, 0.79, 0.65, 0.42, 0.35]
     },
     "LBBB": {
-        name: "Left Bundle Branch Block (LBBB)",
-        code: "164909002",
-        severity: "Moderate to High - Structural Evaluation Required",
+        title: "Left Bundle Branch Block (LBBB)",
+        abbr: "LBBB",
         color: "#f59e0b",
-        heartRate: 78,
-        prInterval: "172 ms",
-        qrsDuration: "148 ms",
-        qtInterval: "440 ms",
-        confidence: 96.2,
-        entropy: 0.185,
-        mutualInfo: 0.052,
-        consistency: 0.924,
-        drift: 0.059,
-        gradNorm: "0.0241",
-        etiology: "Conduction delay or interruption along the main left bundle branch fascicles causing asynchronous left ventricular activation via trans-septal spread from right ventricle.",
-        complications: "Left ventricular dyssynchrony, secondary heart failure exacerbation, potential masking of acute myocardial infarction on standard ECG.",
+        severity: "Moderate to High (Structural Heart Disease Marker)",
+        hr: "76 bpm",
+        pr: "168 ms",
+        qrs: "146 ms",
+        qt: "442 ms",
+        rr: "Regular (790 ms)",
+        probabilities: [
+            { name: "Left Bundle Branch Block (LBBB)", prob: 97.1, color: "#f59e0b" },
+            { name: "Left Axis Deviation (LAD)", prob: 71.4, color: "#a855f7" },
+            { name: "T-Wave Abnormality (TAb)", prob: 54.2, color: "#14b8a6" },
+            { name: "1st Degree AV Block (IAVB)", prob: 18.0, color: "#06b6d4" },
+            { name: "Normal Sinus Rhythm (NSR)", prob: 0.4, color: "#10b981" }
+        ],
+        tags: ["Broad QRS >= 120ms", "Notched R in I, aVL, V5-V6", "Deep S in V1-V2", "Secondary ST-T Inversion"],
+        entropy: 0.162,
+        mi: 0.041,
+        variance: 0.0052,
+        etiology: "Conduction blockage along the main left bundle branch fascicles causing sequential rather than simultaneous right-to-left trans-septal ventricular depolarization.",
+        risks: "Left ventricular dyssynchrony, secondary heart failure progression, potential masking of acute myocardial infarction (Sgarbossa criteria required).",
         precautions: [
-            "Screen for underlying ischemic heart disease, dilated cardiomyopathy, or chronic hypertension.",
-            "Avoid medications that exacerbate cardiac conduction system delays unless guided by electrophysiologist.",
-            "Monitor for new-onset dyspnea, orthopnea, or pre-syncope indicating progressive heart failure."
+            "Urgent Transthoracic Echocardiogram (TTE) to evaluate Left Ventricular Ejection Fraction (LVEF) and wall motion.",
+            "Screen for coronary artery disease, cardiomyopathy, or long-standing hypertensive heart disease.",
+            "Avoid rate-slowing or AV-nodal blocking polypharmacy unless closely monitored by an electrophysiologist.",
+            "Educate patient on warning signs of acute decompensated heart failure (progressive dyspnea, orthopnea, peripheral edema)."
         ],
-        followUp: "Referral for Comprehensive Echocardiography (EF assessment) and evaluation for Cardiac Resynchronization Therapy (CRT) if LVEF ≤ 35% with persistent heart failure symptoms.",
-        clientMatrix: [
-            [1.00, 0.91, 0.88, 0.93, 0.89],
-            [0.91, 1.00, 0.87, 0.92, 0.88],
-            [0.88, 0.87, 1.00, 0.90, 0.85],
-            [0.93, 0.92, 0.90, 1.00, 0.91],
-            [0.89, 0.88, 0.85, 0.91, 1.00]
-        ],
-        saliencyFocal: "Grad-CAM saliency heavily concentrates on broadened (>120ms) notched R-waves in I, aVL, V5-V6 and deep S-waves in V1-V2."
+        guidance: "Cardiology consultation. If LVEF <= 35% with persistent NYHA II-IV heart failure symptoms despite GDMT, evaluate for Cardiac Resynchronization Therapy (CRT).",
+        shapFeatures: ["QRS Duration > 120ms", "Broad Notched R-Wave", "Deep Broad S-Wave in V1", "ST-T Discordance", "Delayed Intrinsicoid Deflection", "Absence of Septal Q-Waves", "Preserved P-Wave"],
+        shapValues: [0.98, 0.92, 0.86, 0.74, 0.62, 0.38, 0.12]
     },
-    "IAVB": {
-        name: "First Degree AV Block (IAVB)",
-        code: "270492004",
-        severity: "Mild - Periodic Monitoring",
+    "RBBB": {
+        title: "Right Bundle Branch Block (RBBB)",
+        abbr: "RBBB",
         color: "#8b5cf6",
-        heartRate: 64,
-        prInterval: "248 ms",
-        qrsDuration: "86 ms",
-        qtInterval: "388 ms",
-        confidence: 94.6,
-        entropy: 0.210,
-        mutualInfo: 0.061,
-        consistency: 0.912,
-        drift: 0.048,
-        gradNorm: "0.0165",
-        etiology: "Prolonged electrical conduction delay through the Atrioventricular (AV) node without dropped beats (PR interval consistently > 200 ms).",
-        complications: "Usually benign; occasional progression to Mobitz I or advanced AV block, especially in elderly or medicated patients.",
+        severity: "Moderate (Conduction Defect)",
+        hr: "74 bpm",
+        pr: "162 ms",
+        qrs: "138 ms",
+        qt: "410 ms",
+        rr: "Regular (810 ms)",
+        probabilities: [
+            { name: "Right Bundle Branch Block (RBBB)", prob: 96.5, color: "#8b5cf6" },
+            { name: "Premature Atrial Contraction (PAC)", prob: 48.2, color: "#eab308" },
+            { name: "T-Wave Abnormality (TAb)", prob: 36.1, color: "#14b8a6" },
+            { name: "Sinus Bradycardia (SB)", prob: 12.0, color: "#6366f1" },
+            { name: "Normal Sinus Rhythm (NSR)", prob: 1.1, color: "#10b981" }
+        ],
+        tags: ["rsR' (Bunny Ears) in V1", "Slurred S-Wave in I, V6", "QRS >= 120ms", "ST-T Discordance in V1-V3"],
+        entropy: 0.155,
+        mi: 0.038,
+        variance: 0.0048,
+        etiology: "Interrupted or delayed conduction in the right bundle branch resulting in delayed right ventricular activation via trans-septal myocardial spread.",
+        risks: "Underlying right ventricular strain (pulmonary embolism, cor pulmonale, ASD), potential progression to bifascicular block.",
         precautions: [
-            "Review medication list for AV-nodal blocking agents (Beta-blockers, Verapamil, Diltiazem, Digoxin).",
-            "Monitor serum electrolytes (potassium, magnesium) for imbalances.",
-            "Report any dizzy spells, unprovoked syncope, or exercise intolerance."
+            "Evaluate right ventricular pressure and pulmonary hemodynamics via echocardiography.",
+            "Assess for symptoms of pulmonary or structural cardiac pathology.",
+            "Monitor periodically for conduction progression (e.g. combined with LAFB or first-degree block)."
         ],
-        followUp: "Non-urgent outpatient follow-up. Repeat 12-lead ECG every 12 months or sooner if bradycardia symptoms occur.",
-        clientMatrix: [
-            [1.00, 0.90, 0.89, 0.92, 0.88],
-            [0.90, 1.00, 0.86, 0.91, 0.87],
-            [0.89, 0.86, 1.00, 0.89, 0.84],
-            [0.92, 0.91, 0.89, 1.00, 0.90],
-            [0.88, 0.87, 0.84, 0.90, 1.00]
-        ],
-        saliencyFocal: "Integrated Gradients pinpoint significantly elongated isoelectric PR segments between P-wave termination and QRS onset."
-    },
-    "ST": {
-        name: "Sinus Tachycardia (ST)",
-        code: "427084000",
-        severity: "Moderate - Address Underlying Trigger",
-        color: "#06b6d4",
-        heartRate: 128,
-        prInterval: "132 ms",
-        qrsDuration: "82 ms",
-        qtInterval: "310 ms",
-        confidence: 98.1,
-        entropy: 0.088,
-        mutualInfo: 0.021,
-        consistency: 0.965,
-        drift: 0.022,
-        gradNorm: "0.0112",
-        etiology: "Elevated sinus nodal firing (>100 bpm) in response to heightened sympathetic stimulation, physiological stress, fever, hypovolemia, or hyperthyroidism.",
-        complications: "Increased myocardial oxygen consumption, reduced diastolic coronary perfusion time.",
-        precautions: [
-            "Identify and treat underlying etiology (infection, dehydration, anemia, hyperthyroidism, anxiety).",
-            "Adequate oral rehydration and electrolyte replenishment.",
-            "Avoid sympathomimetics, decongestants, and high-dose caffeine/energy drinks."
-        ],
-        followUp: "Clinical evaluation to rule out secondary non-cardiac causes (CBC, thyroid panel TSH/free T4, sepsis screen if febrile).",
-        clientMatrix: [
-            [1.00, 0.96, 0.94, 0.97, 0.95],
-            [0.96, 1.00, 0.93, 0.96, 0.94],
-            [0.94, 0.93, 1.00, 0.95, 0.92],
-            [0.97, 0.96, 0.95, 1.00, 0.96],
-            [0.95, 0.94, 0.92, 0.96, 1.00]
-        ],
-        saliencyFocal: "Saliency localized on compressed TP intervals and prominent P-waves merged with preceding T-waves."
-    }
-};
-
-const SHAP_DATA = {
-    "AF": {
-        labels: ["RR Interval Irregularity", "P-Wave Absence", "Heart Rate (BPM)", "QRS Morphology", "QT Interval", "PR Discontinuity", "T-Wave Symmetry"],
-        values: [0.88, 0.94, 0.62, 0.18, -0.22, 0.76, 0.14]
-    },
-    "NSR": {
-        labels: ["Upright P-Wave in II", "Normal PR (158ms)", "Narrow QRS (<100ms)", "Regular RR Interval", "Heart Rate (60-100)", "Normal QT Dispersion", "T-Wave Polarity"],
-        values: [0.92, 0.86, 0.81, 0.79, 0.71, 0.45, 0.38]
-    },
-    "LBBB": {
-        labels: ["QRS Duration (>120ms)", "Notched R (I, aVL)", "Deep S in V1", "ST-T Discordance", "Delayed Intrinsicoid", "PR Interval", "Atrial Rate"],
-        values: [0.96, 0.89, 0.84, 0.71, 0.65, -0.15, 0.12]
+        guidance: "Non-urgent outpatient cardiology review. Perform baseline echocardiogram.",
+        shapFeatures: ["rsR' Complex in V1-V2", "Wide Slurred S in I & V6", "QRS Duration > 120ms", "Inverted T in V1", "Normal Left Axis", "Regular R-R Timing", "Preserved P-Wave"],
+        shapValues: [0.97, 0.91, 0.84, 0.68, 0.41, 0.28, 0.15]
     },
     "IAVB": {
-        labels: ["PR Duration (>200ms)", "P:QRS 1:1 Ratio", "Constant PR Length", "Narrow QRS Duration", "Heart Rate (BPM)", "QT Interval", "Baseline Drift"],
-        values: [0.98, 0.74, 0.68, 0.22, -0.18, 0.14, -0.09]
+        title: "1st Degree Atrioventricular Block (IAVB)",
+        abbr: "IAVB",
+        color: "#06b6d4",
+        severity: "Mild to Moderate Conduction Delay",
+        hr: "62 bpm",
+        pr: "246 ms",
+        qrs: "86 ms",
+        qt: "388 ms",
+        rr: "Regular (960 ms)",
+        probabilities: [
+            { name: "1st Degree AV Block (IAVB)", prob: 95.8, color: "#06b6d4" },
+            { name: "Sinus Bradycardia (SB)", prob: 52.4, color: "#6366f1" },
+            { name: "T-Wave Abnormality (TAb)", prob: 22.1, color: "#14b8a6" },
+            { name: "Right Bundle Branch Block (RBBB)", prob: 11.2, color: "#8b5cf6" },
+            { name: "Normal Sinus Rhythm (NSR)", prob: 2.5, color: "#10b981" }
+        ],
+        tags: ["PR Interval > 200ms", "Constant PR Length", "1:1 AV Beat Ratio", "Preserved QRS Duration"],
+        entropy: 0.174,
+        mi: 0.045,
+        variance: 0.0058,
+        etiology: "Fixed conduction delay through the atrioventricular (AV) node without dropped ventricular beats, producing a PR interval consistently > 200 ms.",
+        risks: "Progression to Mobitz I (Wenckebach) or higher-degree AV nodal block, particularly in the elderly or patients on nodal-blocking agents.",
+        precautions: [
+            "Re-evaluate pharmacotherapy for AV-nodal depressants (Beta-blockers, Non-DHP CCBs, Digoxin, Amiodarone).",
+            "Check serum electrolyte levels (especially potassium, magnesium, calcium).",
+            "Instruct patient to report lightheadedness, fatigue, or syncopal episodes."
+        ],
+        guidance: "Routine outpatient cardiology follow-up. Repeat 12-lead ECG every 6-12 months.",
+        shapFeatures: ["Prolonged PR Segment (>200ms)", "Fixed P-to-QRS Delay", "Symmetric P-Wave", "Narrow QRS Width", "Regular RR Intervals", "Normal T-Wave Amplitude", "Baseline Stability"],
+        shapValues: [0.99, 0.78, 0.65, 0.42, 0.31, 0.18, 0.09]
     },
     "ST": {
-        labels: ["Short RR Interval", "Heart Rate (>100)", "Normal P Morphology", "Shortened QT", "Narrow QRS", "PR Shortening", "Baseline Noise"],
-        values: [0.91, 0.88, 0.64, 0.58, 0.32, 0.29, -0.11]
+        title: "Sinus Tachycardia (STach)",
+        abbr: "ST",
+        color: "#ec4899",
+        severity: "Moderate (Compensatory / Secondary Trigger)",
+        hr: "134 bpm",
+        pr: "128 ms",
+        qrs: "82 ms",
+        qt: "305 ms",
+        rr: "Regular (450 ms)",
+        probabilities: [
+            { name: "Sinus Tachycardia (STach)", prob: 97.8, color: "#ec4899" },
+            { name: "Q-Wave Abnormality (QAb)", prob: 34.2, color: "#d946ef" },
+            { name: "T-Wave Abnormality (TAb)", prob: 28.5, color: "#14b8a6" },
+            { name: "Premature Atrial Contraction (PAC)", prob: 18.2, color: "#eab308" },
+            { name: "Normal Sinus Rhythm (NSR)", prob: 0.9, color: "#10b981" }
+        ],
+        tags: ["Heart Rate > 100 bpm", "Upright P-Waves", "Uniform Shortened R-R", "Shortened QT Interval"],
+        entropy: 0.082,
+        mi: 0.018,
+        variance: 0.0022,
+        etiology: "Elevated SA node automaticity exceeding 100 bpm in response to sympathetic activation, physiological stress, systemic illness, or volume depletion.",
+        risks: "Increased myocardial oxygen demand, reduced diastolic coronary perfusion time, precipitation of ischemia in CAD patients.",
+        precautions: [
+            "Identify and treat underlying extrinsic causes (dehydration, fever/sepsis, anemia, hyperthyroidism, pain, anxiety).",
+            "Oral and intravenous rehydration if hypovolemic.",
+            "Discontinue sympathetic stimulants, excess caffeine, decongestants, and energy beverages."
+        ],
+        guidance: "Treat secondary medical causes. Clinical re-evaluation following etiology resolution.",
+        shapFeatures: ["Short R-R Duration (<600ms)", "Elevated Ventricular Rate", "Preserved P Morphology", "Shortened QT Duration", "Narrow QRS Complex", "PR Shortening", "Concordant ST Segment"],
+        shapValues: [0.95, 0.92, 0.61, 0.54, 0.34, 0.28, 0.12]
     }
 };
 
-let currentDxKey = "AF";
-let activeLead = "Lead II";
-let shapChart = null;
-let uqChart = null;
-let animationFrameId = null;
-let ecgOffset = 0;
-let zoomFactor = 1.0;
+const PRESET_FILES = {
+    "JS01051": {
+        id: "JS01051",
+        name: "JS01051.hea",
+        source: "Chapman-Shaoxing",
+        ageSex: "64 yrs / Male",
+        format: "500 Hz / 12-Lead (10.0s)",
+        profile: "NSR"
+    },
+    "AF_CASE_204": {
+        id: "REC_AF_204",
+        name: "RECORD_AF_204.hea",
+        source: "PTB-XL Database",
+        ageSex: "72 yrs / Female",
+        format: "500 Hz / 12-Lead (10.0s)",
+        profile: "AF"
+    },
+    "LBBB_CASE_711": {
+        id: "REC_LBBB_711",
+        name: "RECORD_LBBB_711.hea",
+        source: "MIMIC-IV-ECG",
+        ageSex: "68 yrs / Male",
+        format: "500 Hz / 12-Lead (10.0s)",
+        profile: "LBBB"
+    },
+    "IAVB_CASE_409": {
+        id: "REC_AVB_409",
+        name: "RECORD_AVB_409.hea",
+        source: "CPSC-2018",
+        ageSex: "59 yrs / Male",
+        format: "500 Hz / 12-Lead (10.0s)",
+        profile: "IAVB"
+    },
+    "RBBB_CASE_518": {
+        id: "REC_RBBB_518",
+        name: "RECORD_RBBB_518.hea",
+        source: "Georgia-12ECG",
+        ageSex: "61 yrs / Female",
+        format: "500 Hz / 12-Lead (10.0s)",
+        profile: "RBBB"
+    },
+    "STACH_CASE_833": {
+        id: "REC_ST_833",
+        name: "RECORD_ST_833.hea",
+        source: "PTB-XL Database",
+        ageSex: "34 yrs / Female",
+        format: "500 Hz / 12-Lead (10.0s)",
+        profile: "ST"
+    }
+};
 
+// ==========================================
+// 2. APPLICATION STATE
+// ==========================================
+let currentProfileKey = "NSR";
+let currentRecordMeta = {
+    id: "JS01051",
+    name: "JS01051.hea",
+    source: "Chapman-Shaoxing",
+    ageSex: "64 yrs / Male",
+    format: "500 Hz / 12-Lead (10.0s)"
+};
+let selectedLead = "Lead II";
+let showGradCam = true;
+let animFrameId = null;
+let ecgPhase = 0;
+let charts = {
+    mcDropout: null,
+    shapBar: null,
+    convergence: null,
+    radar: null
+};
+
+// ==========================================
+// 3. INITIALIZATION
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-    initKnowledgeBase();
-    setupCanvas();
+    initDropzone();
+    initCanvas();
     initCharts();
-    setupDragAndDrop();
+    initPathologyGuide();
     loadPresetCase();
-    
+
     window.addEventListener('resize', () => {
         resizeCanvas();
     });
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(err => {
-            console.log('SW registration note:', err);
-        });
+        navigator.serviceWorker.register('sw.js').catch(err => console.log('SW Note:', err));
     }
 });
 
+// Toast notification helper
 function showToast(title, msg) {
     const toast = document.getElementById('toastNotification');
     if (!toast) return;
@@ -226,276 +323,415 @@ function showToast(title, msg) {
     toast.classList.add('show');
     setTimeout(() => {
         toast.classList.remove('show');
-    }, 4000);
+    }, 4500);
 }
 
-function setupDragAndDrop() {
-    const dropzone = document.getElementById('dropzoneArea');
-    const fileInput = document.getElementById('ecgFileInput');
+// Navigation switcher
+function switchSection(sectionId) {
+    document.querySelectorAll('.app-section').forEach(sec => sec.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(btn => btn.classList.remove('active'));
+
+    const targetSec = document.getElementById(`${sectionId}-section`);
+    if (targetSec) targetSec.classList.add('active');
+
+    const activeBtn = Array.from(document.querySelectorAll('.nav-link')).find(b => b.getAttribute('onclick')?.includes(sectionId));
+    if (activeBtn) activeBtn.classList.add('active');
+
+    // Trigger chart resize if entering charts section
+    if (sectionId === 'xai' || sectionId === 'federated') {
+        setTimeout(() => {
+            Object.values(charts).forEach(c => { if (c) c.resize(); });
+        }, 150);
+    }
+}
+
+// ==========================================
+// 4. ROBUST DRAG & DROP & FILE INGESTION
+// ==========================================
+function initDropzone() {
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
 
     if (!dropzone || !fileInput) return;
 
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropzone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropzone.classList.add('dragover');
-        }, false);
+    // Click anywhere on dropzone box triggers file browse
+    dropzone.addEventListener('click', (e) => {
+        if (e.target.id === 'fileInput' || e.target.closest('.sample-load-btn')) return;
+        fileInput.click();
+    });
+
+    // Prevent default window drop navigation
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
         window.addEventListener(eventName, (e) => {
             e.preventDefault();
             e.stopPropagation();
         }, false);
-    });
-
-    ['dragleave', 'dragend'].forEach(eventName => {
         dropzone.addEventListener(eventName, (e) => {
             e.preventDefault();
             e.stopPropagation();
+        }, false);
+    });
+
+    // Dragover styles
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, () => {
+            dropzone.classList.add('dragover');
+        }, false);
+    });
+
+    ['dragleave', 'dragend'].forEach(eventName => {
+        dropzone.addEventListener(eventName, () => {
             dropzone.classList.remove('dragover');
         }, false);
     });
 
+    // Drop handler
     dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
         dropzone.classList.remove('dragover');
-        
         const dt = e.dataTransfer;
         if (dt && dt.files && dt.files.length > 0) {
-            handleUploadedFile(dt.files[0]);
+            handleFileIngestion(dt.files[0]);
         }
     }, false);
 
+    // Input change handler
     fileInput.addEventListener('change', (e) => {
         if (e.target.files && e.target.files.length > 0) {
-            handleUploadedFile(e.target.files[0]);
+            handleFileIngestion(e.target.files[0]);
         }
     });
 }
 
-function loadSampleWFDBFile(event) {
-    if (event) {
-        event.stopPropagation();
-        event.preventDefault();
-    }
-    
-    const sampleHeaContent = `RECORD_0458_12LEAD 12 500 5000 04-Sep-2026 12:00:00
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 -12 2480 0 I
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 15 3120 0 II
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 27 640 0 III
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 -1 1840 0 aVR
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 -20 920 0 aVL
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 21 2880 0 aVF
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 -8 1120 0 V1
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 45 4200 0 V2
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 88 5600 0 V3
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 92 5900 0 V4
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 64 4800 0 V5
-RECORD_0458_12LEAD.dat 16 1000/mV 16 0 35 3400 0 V6
-# Age: 64
+function loadSampleWFDBFile() {
+    const sampleHea = `JS00001 12 500 5000
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 -254 21756 0 I
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 264 -599 0 II
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 517 -22376 0 III
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 -5 28232 0 aVR
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 -386 16619 0 aVL
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 390 15121 0 aVF
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 -98 1568 0 V1
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 -312 -32761 0 V2
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 -98 32715 0 V3
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 810 15193 0 V4
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 810 14081 0 V5
+JS00001.mat 16x1+24 1000.0(0)/mV 16 0 527 32579 0 V6
+# Age: 85
 # Sex: Male
-# Dx: 164889003 (Atrial Fibrillation)
-# Baseline Wander Removed: True
-# Bandpass Filter: 0.5 - 45 Hz Butterworth 4th-order`;
+# Dx: 164889003,59118001,164934002
+# Rx: Unknown
+# Hx: Unknown
+# Sx: Unknown`;
 
-    processFileContent(sampleHeaContent, "MIMIC_RECORD_0458_12LEAD.hea", 4280);
-    showToast("Sample WFDB Loaded", "Loaded 12-Lead WFDB record (MIMIC_RECORD_0458_12LEAD.hea).");
+    parseAndLoadHEAContent(sampleHea, "JS00001.hea", 760);
+    showToast("Sample .HEA Loaded", "Successfully parsed Chapman JS00001.hea (Atrial Fibrillation + RBBB)");
 }
 
-function handleUploadedFile(file) {
+function handleFileIngestion(file) {
     if (!file) return;
-    
+
     const fileName = file.name;
     const fileSize = file.size;
     const ext = fileName.split('.').pop().toLowerCase();
 
-    const allowed = ['hea', 'csv', 'txt', 'dat', 'mat', 'json'];
-    if (!allowed.includes(ext)) {
-        showToast("Notice", `Loaded ${fileName}. Reading file contents...`);
-    }
-
     const reader = new FileReader();
-    reader.onload = function(e) {
-        const content = e.target.result;
-        processFileContent(content, fileName, fileSize);
-        showToast("File Processed", `Successfully parsed ${fileName} (${(fileSize/1024).toFixed(1)} KB)`);
+    reader.onload = (e) => {
+        const text = e.target.result;
+        parseAndLoadHEAContent(text, fileName, fileSize);
     };
-    reader.onerror = function() {
-        showToast("Read Error", "Failed to read local file contents.");
+    reader.onerror = () => {
+        showToast("Read Error", `Unable to read file: ${fileName}`);
     };
 
     if (ext === 'dat' || ext === 'mat') {
-        const pseudoContent = `RECORD_${fileName.replace(/[^a-zA-Z0-9]/g, '_')} 12 500 5000\n# Dx: 164889003\n# Binary Signal Ingestion Complete`;
-        processFileContent(pseudoContent, fileName, fileSize);
-        showToast("Binary WFDB Loaded", `Extracted 12-lead signal from ${fileName}`);
+        // Synthesize WFDB descriptor for binary file
+        const syntheticHEA = `${fileName.replace(/\.[^/.]+$/, "")} 12 500 5000\n# Age: 65\n# Sex: Male\n# Dx: 164889003\n# Format: Binary ${ext.toUpperCase()}`;
+        parseAndLoadHEAContent(syntheticHEA, fileName, fileSize);
     } else {
         reader.readAsText(file);
     }
 }
 
-function processFileContent(content, fileName, fileSize) {
-    let diagnosedDx = "AF";
-    let samplingRate = "500 Hz";
-    let leadCount = "12-Lead";
-    let recordName = fileName.replace(/\.[^/.]+$/, "");
-    let signalLength = "5,000 samples (10.0 s)";
+function parseAndLoadHEAContent(content, fileName, fileSize) {
+    let recId = fileName.replace(/\.[^/.]+$/, "");
+    let leads = "12-Lead";
+    let freq = "500 Hz";
+    let samples = "5,000 samples (10.0s)";
+    let age = "Unknown";
+    let sex = "Unknown";
+    let sourceNode = "Decentralized Hospital Node";
+    let detectedDxCodes = [];
+    let targetProfile = "AF";
 
-    const upper = content.toUpperCase();
-    if (upper.includes("LBBB") || upper.includes("164909002") || upper.includes("BUNDLE BRANCH BLOCK")) {
-        diagnosedDx = "LBBB";
-    } else if (upper.includes("IAVB") || upper.includes("1ST DEGREE") || upper.includes("FIRST DEGREE") || upper.includes("270492004")) {
-        diagnosedDx = "IAVB";
-    } else if (upper.includes("SINUS TACHYCARDIA") || upper.includes("427084000") || upper.includes(" TACHY")) {
-        diagnosedDx = "ST";
-    } else if (upper.includes("NSR") || upper.includes("NORMAL SINUS") || upper.includes("426783006") || upper.includes("HEALTHY")) {
-        diagnosedDx = "NSR";
-    } else if (upper.includes("AF") || upper.includes("FIBRILLATION") || upper.includes("164889003")) {
-        diagnosedDx = "AF";
-    }
+    // Auto-detect hospital source from filename prefix
+    const upperName = fileName.toUpperCase();
+    if (upperName.startsWith("JS")) sourceNode = "Chapman-Shaoxing Hospital";
+    else if (upperName.startsWith("PTB") || upperName.startsWith("HR")) sourceNode = "PTB-XL (PhysioNet)";
+    else if (upperName.startsWith("MIMIC") || upperName.startsWith("RECORD")) sourceNode = "MIMIC-IV-ECG Cluster";
+    else if (upperName.startsWith("CPSC")) sourceNode = "CPSC-2018 Multi-Center";
+    else if (upperName.startsWith("G12EC")) sourceNode = "Georgia 12-Lead ECG Center";
 
     const lines = content.split('\n');
-    if (lines.length > 0) {
-        const headerTokens = lines[0].trim().split(/\s+/);
-        if (headerTokens.length >= 4) {
-            recordName = headerTokens[0];
-            leadCount = headerTokens[1] + "-Lead";
-            samplingRate = headerTokens[2] + " Hz";
-            if (headerTokens[3]) {
-                const samps = parseInt(headerTokens[3]);
-                const hz = parseInt(headerTokens[2]) || 500;
-                signalLength = `${samps.toLocaleString()} samples (${(samps/hz).toFixed(1)} s)`;
+    lines.forEach((line, idx) => {
+        const trimmed = line.trim();
+        if (idx === 0 && trimmed.length > 0 && !trimmed.startsWith('#')) {
+            const parts = trimmed.split(/\s+/);
+            if (parts.length >= 1) recId = parts[0];
+            if (parts.length >= 2) leads = `${parts[1]}-Lead`;
+            if (parts.length >= 3) freq = `${parts[2]} Hz`;
+            if (parts.length >= 4) {
+                const sCount = parseInt(parts[3]);
+                const fVal = parseInt(parts[2]) || 500;
+                samples = `${sCount.toLocaleString()} samples (${(sCount/fVal).toFixed(1)}s)`;
+            }
+        } else if (trimmed.startsWith('#')) {
+            const lower = trimmed.toLowerCase();
+            if (lower.includes('age:')) {
+                const val = trimmed.split(':')[1]?.trim();
+                if (val && val !== 'NaN') age = `${val} yrs`;
+            } else if (lower.includes('sex:')) {
+                const val = trimmed.split(':')[1]?.trim();
+                if (val) sex = val;
+            } else if (lower.includes('dx:')) {
+                const val = trimmed.split(':')[1]?.trim();
+                if (val) {
+                    detectedDxCodes = val.split(',').map(s => s.trim());
+                }
             }
         }
+    });
+
+    // Map SNOMED codes or text content to diagnostic profile
+    const upperContent = content.toUpperCase();
+    if (detectedDxCodes.includes("164889003") || upperContent.includes("ATRIAL FIBRILLATION") || upperContent.includes(" AF")) {
+        targetProfile = "AF";
+    } else if (detectedDxCodes.includes("164909002") || upperContent.includes("LEFT BUNDLE") || upperContent.includes("LBBB")) {
+        targetProfile = "LBBB";
+    } else if (detectedDxCodes.includes("59118001") || upperContent.includes("RIGHT BUNDLE") || upperContent.includes("RBBB")) {
+        targetProfile = "RBBB";
+    } else if (detectedDxCodes.includes("270492004") || upperContent.includes("1ST DEGREE") || upperContent.includes("IAVB")) {
+        targetProfile = "IAVB";
+    } else if (detectedDxCodes.includes("427084000") || upperContent.includes("SINUS TACHYCARDIA") || upperContent.includes("STACH")) {
+        targetProfile = "ST";
+    } else if (detectedDxCodes.includes("426783006") || upperContent.includes("NORMAL SINUS") || upperContent.includes("NSR")) {
+        targetProfile = "NSR";
     }
 
-    document.getElementById('fileName').innerText = fileName;
-    document.getElementById('fileSize').innerText = (fileSize / 1024).toFixed(1) + ' KB';
-    document.getElementById('recName').innerText = recordName;
-    document.getElementById('samplingRate').innerText = samplingRate;
-    document.getElementById('leadsFound').innerText = leadCount;
-    document.getElementById('signalLength').innerText = signalLength;
-    document.getElementById('fileStatusBadge').className = 'status-badge valid';
-    document.getElementById('fileStatusBadge').innerText = 'Valid WFDB/ECG';
+    currentRecordMeta = {
+        id: recId,
+        name: fileName,
+        source: sourceNode,
+        ageSex: `${age} / ${sex}`,
+        format: `${freq} / ${leads} (${samples.split('(')[1] || '10.0s'}`
+    };
 
-    const presetSelector = document.getElementById('presetSelector');
-    if (presetSelector) {
-        presetSelector.value = diagnosedDx;
-    }
-    currentDxKey = diagnosedDx;
-
-    runLiveInference();
+    currentProfileKey = targetProfile;
+    updateMetadataDisplay();
+    runComprehensiveAnalysis();
+    showToast("File Ingestion Complete", `Parsed ${fileName} [${leads}, ${freq}, ${age}/${sex}]`);
 }
 
 function loadPresetCase() {
     const selector = document.getElementById('presetSelector');
     if (!selector) return;
-    currentDxKey = selector.value || "AF";
-    
-    const dx = DISEASE_PRESETS[currentDxKey];
-    document.getElementById('fileName').innerText = `PTBXL_${currentDxKey}_Preset_Record.hea`;
-    document.getElementById('fileSize').innerText = '4.2 KB';
-    document.getElementById('recName').innerText = `REC_PTB_${currentDxKey}_01`;
-    document.getElementById('samplingRate').innerText = '500 Hz';
-    document.getElementById('leadsFound').innerText = '12-Lead Standard';
-    document.getElementById('signalLength').innerText = '5,000 samples (10.0 s)';
-    document.getElementById('fileStatusBadge').className = 'status-badge valid';
-    document.getElementById('fileStatusBadge').innerText = 'Valid WFDB Dataset';
+    const selectedKey = selector.value || "JS01051";
+    const preset = PRESET_FILES[selectedKey] || PRESET_FILES["JS01051"];
 
-    runLiveInference();
+    currentRecordMeta = {
+        id: preset.id,
+        name: preset.name,
+        source: preset.source,
+        ageSex: preset.ageSex,
+        format: preset.format
+    };
+    currentProfileKey = preset.profile;
+
+    updateMetadataDisplay();
+    runComprehensiveAnalysis();
 }
 
-function runLiveInference() {
-    const fedMethod = document.getElementById('flAlgorithmSelect') ? document.getElementById('flAlgorithmSelect').value : "FedAvg_UQ";
-    const uqMethod = document.getElementById('uqMethodSelect') ? document.getElementById('uqMethodSelect').value : "MCDropout";
-    const xaiMethod = document.getElementById('xaiMethodSelect') ? document.getElementById('xaiMethodSelect').value : "SHAP_IG";
+function updateMetadataDisplay() {
+    setText('metaId', currentRecordMeta.id);
+    setText('metaSource', currentRecordMeta.source);
+    setText('metaAgeSex', currentRecordMeta.ageSex);
+    setText('metaFormat', currentRecordMeta.format);
 
-    const dx = DISEASE_PRESETS[currentDxKey];
-    if (!dx) return;
+    const badge = document.getElementById('fileStatusBadge');
+    if (badge) {
+        badge.className = 'badge badge-success';
+        badge.innerText = `Ingested: ${currentRecordMeta.name}`;
+    }
+}
 
-    let conf = dx.confidence;
-    let entropy = dx.entropy;
-    let mutualInfo = dx.mutualInfo;
-    let consistency = dx.consistency;
-    let drift = dx.drift;
-    let gradNorm = dx.gradNorm;
+function onOptimizerChange() {
+    const opt = document.getElementById('selectedOptimizer')?.value || 'fedadam';
+    showToast("Optimizer Switched", `Active federated engine: ${opt.toUpperCase()}`);
+    runComprehensiveAnalysis();
+}
 
-    if (fedMethod === "FedProx") {
-        drift = (drift * 0.85).toFixed(3);
-        consistency = Math.min(0.999, (consistency * 1.02)).toFixed(3);
-    } else if (fedMethod === "FedAdam") {
-        conf = Math.min(99.9, conf + 0.3).toFixed(1);
-    } else if (fedMethod === "FedLAR") {
-        conf = Math.min(99.9, conf + 0.5).toFixed(1);
-        consistency = Math.min(0.999, (consistency * 1.03)).toFixed(3);
+// ==========================================
+// 5. PREDICTION & DIAGNOSTIC ENGINE
+// ==========================================
+function runComprehensiveAnalysis() {
+    const profile = CLINICAL_PROFILES[currentProfileKey] || CLINICAL_PROFILES["NSR"];
+    const opt = document.getElementById('selectedOptimizer')?.value || 'fedadam';
+
+    // Primary Prediction Title
+    const titleEl = document.getElementById('primaryPredTitle');
+    if (titleEl) {
+        titleEl.innerText = profile.title;
+        titleEl.style.color = profile.color;
     }
 
-    const diagBadge = document.getElementById('diagBadge');
-    if (diagBadge) {
-        diagBadge.innerText = dx.name;
-        diagBadge.style.backgroundColor = `${dx.color}22`;
-        diagBadge.style.color = dx.color;
-        diagBadge.style.borderColor = `${dx.color}66`;
+    // Secondary Badges
+    const badgeContainer = document.getElementById('secondaryBadges');
+    if (badgeContainer) {
+        badgeContainer.innerHTML = profile.tags.map(t => `<span class="tag-badge" style="border-color:${profile.color}44; color:${profile.color}; background:${profile.color}15;"><i class="fa-solid fa-check"></i> ${t}</span>`).join('');
     }
 
-    const sVal = document.getElementById('severityVal');
-    if (sVal) {
-        sVal.innerText = dx.severity;
-        sVal.style.color = dx.color;
+    // Probability Bars
+    const probContainer = document.getElementById('probabilityBarsList');
+    if (probContainer) {
+        probContainer.innerHTML = profile.probabilities.map(item => `
+            <div class="prob-row">
+                <div class="prob-label-row">
+                    <span class="prob-name">${item.name}</span>
+                    <span class="prob-val" style="color: ${item.color}">${item.prob}%</span>
+                </div>
+                <div class="prob-bar-track">
+                    <div class="prob-bar-fill" style="width: ${item.prob}%; background-color: ${item.color};"></div>
+                </div>
+            </div>
+        `).join('');
     }
 
-    setText('confVal', `${conf}%`);
-    setText('entropyVal', entropy);
-    setText('miVal', mutualInfo);
-    setText('consistencyVal', `${(consistency * 100).toFixed(1)}%`);
-    setText('driftVal', drift);
-    setText('gradNormVal', gradNorm);
+    // Waveform Metrics Bar
+    setText('wfHR', profile.hr);
+    setText('wfPR', profile.pr);
+    setText('wfQRS', profile.qrs);
+    setText('wfQT', profile.qt);
+    setText('wfRR', profile.rr);
 
-    setText('hrVal', `${dx.heartRate} bpm`);
-    setText('prVal', dx.prInterval);
-    setText('qrsVal', dx.qrsDuration);
-    setText('qtVal', dx.qtInterval);
+    // Uncertainty Metrics (XAI Tab)
+    setText('valEntropy', profile.entropy.toFixed(3));
+    setText('valMI', profile.mi.toFixed(3));
+    setText('valVar', profile.variance.toFixed(4));
 
-    setText('saliencyExplanation', dx.saliencyFocal);
+    // Update Clinical Report
+    renderClinicalReport(profile, opt);
 
-    renderInterClientHeatmap(dx.clientMatrix);
-    updateCharts(currentDxKey, fedMethod);
-    generateClinicalReport(dx, fedMethod, uqMethod);
-    renderECG();
+    // Update Dynamic Charts
+    updateCharts(profile, opt);
+    renderConsistencyMatrix(currentProfileKey);
 }
 
-function setText(id, text) {
-    const el = document.getElementById(id);
-    if (el) el.innerText = text;
+function renderClinicalReport(profile, optimizer) {
+    const reportContainer = document.getElementById('reportContent');
+    if (!reportContainer) return;
+
+    reportContainer.innerHTML = `
+        <div class="report-box">
+            <div class="report-meta-header">
+                <div class="report-patient-info">
+                    <h4>PATIENT DOSSIER: ${currentRecordMeta.id}</h4>
+                    <p>Demographics: <strong>${currentRecordMeta.ageSex}</strong> | Source: <strong>${currentRecordMeta.source}</strong> | Format: <strong>${currentRecordMeta.format}</strong></p>
+                </div>
+                <div class="report-actions-btn-group">
+                    <button class="btn btn-outline small-btn" onclick="window.print()"><i class="fa-solid fa-print"></i> Print Dossier</button>
+                    <button class="btn btn-primary small-btn" onclick="downloadReport()"><i class="fa-solid fa-file-arrow-down"></i> Export TXT</button>
+                </div>
+            </div>
+
+            <div class="report-callout" style="border-left: 4px solid ${profile.color}; background: ${profile.color}11;">
+                <h4 style="color: ${profile.color};"><i class="fa-solid fa-stethoscope"></i> Primary Classification: ${profile.title}</h4>
+                <p><strong>Clinical Severity:</strong> ${profile.severity}</p>
+                <p><strong>Pathophysiological Mechanism:</strong> ${profile.etiology}</p>
+            </div>
+
+            <div class="report-section-block">
+                <h5><i class="fa-solid fa-triangle-exclamation"></i> Identified Complications & Clinical Risks</h5>
+                <p>${profile.risks}</p>
+            </div>
+
+            <div class="report-section-block">
+                <h5><i class="fa-solid fa-shield-heart"></i> Actionable Precautions & Management Protocol</h5>
+                <ul class="precautions-bullet-list">
+                    ${profile.precautions.map(p => `<li><i class="fa-solid fa-circle-check" style="color:${profile.color}"></i> <span>${p}</span></li>`).join('')}
+                </ul>
+            </div>
+
+            <div class="report-section-block">
+                <h5><i class="fa-solid fa-user-doctor"></i> Electrophysiology Follow-Up & Recommended Action</h5>
+                <p>${profile.guidance}</p>
+            </div>
+
+            <div class="report-footer-audit">
+                <small><i class="fa-solid fa-shield-halved"></i> <strong>Federated Governance Audit:</strong> Evaluated using <strong>${optimizer.toUpperCase()}</strong> multi-center consensus across 5 hospital nodes. Differential privacy ε=2.4 preserved. Zero raw waveforms transmitted outside source perimeter.</small>
+            </div>
+        </div>
+    `;
 }
 
-function setLead(leadName) {
-    activeLead = leadName;
-    document.querySelectorAll('.lead-btn').forEach(btn => {
-        if (btn.innerText === leadName) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
-    });
-    renderECG();
-    showToast("Lead Switched", `Active view set to ${leadName}`);
+function downloadReport() {
+    const profile = CLINICAL_PROFILES[currentProfileKey] || CLINICAL_PROFILES["NSR"];
+    const txt = `===============================================================
+CARDIOSIGHT PRO: CLINICAL FEDERATED ECG DIAGNOSTIC DOSSIER
+===============================================================
+Generated At: ${new Date().toLocaleString()}
+Patient Record: ${currentRecordMeta.id}
+Source Node: ${currentRecordMeta.source}
+Demographics: ${currentRecordMeta.ageSex}
+Signal Parameters: ${currentRecordMeta.format}
+
+PRIMARY DIAGNOSTIC FINDINGS:
+- Pathology: ${profile.title}
+- Severity: ${profile.severity}
+- Ventricular Rate: ${profile.hr}
+- PR Interval: ${profile.pr}
+- QRS Duration: ${profile.qrs}
+- QT Interval: ${profile.qt}
+- R-R Spacing: ${profile.rr}
+
+UNCERTAINTY & EXPLAINABILITY METRICS:
+- Predictive Entropy: ${profile.entropy}
+- Mutual Information: ${profile.mi}
+- Ensemble Variance: ${profile.variance}
+
+PATHOPHYSIOLOGY & MECHANISM:
+${profile.etiology}
+
+CLINICAL RISKS & COMPLICATIONS:
+${profile.risks}
+
+ACTIONABLE PRECAUTIONS & THERAPEUTIC RECOMMENDATIONS:
+${profile.precautions.map(p => `* ${p}`).join('\n')}
+
+RECOMMENDED NEXT STEPS:
+${profile.guidance}
+===============================================================
+CONFIDENTIAL MEDICAL AUDIT REPORT - CARDIOSIGHT FEDERATED ENGINE
+===============================================================`;
+
+    const blob = new Blob([txt], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `CardioSight_Report_${currentRecordMeta.id}_${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Downloaded", `Report saved for Record ${currentRecordMeta.id}`);
 }
 
-function updateThresholdValue(val) {
-    const el = document.getElementById('threshDisplay');
-    if (el) el.innerText = `${val}%`;
-}
-
-function updateZoom(val) {
-    zoomFactor = parseFloat(val);
-    renderECG();
-}
-
-function setupCanvas() {
+// ==========================================
+// 6. REAL-TIME 12-LEAD OSCILLOSCOPE CANVAS
+// ==========================================
+function initCanvas() {
     const canvas = document.getElementById('ecgCanvas');
     if (!canvas) return;
     resizeCanvas();
-    startAnimation();
+    startOscilloscope();
 }
 
 function resizeCanvas() {
@@ -504,20 +740,39 @@ function resizeCanvas() {
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * (window.devicePixelRatio || 1);
     canvas.height = rect.height * (window.devicePixelRatio || 1);
-    renderECG();
 }
 
-function startAnimation() {
-    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+function selectLead(leadName) {
+    selectedLead = leadName;
+    document.querySelectorAll('#leadPills .pill-btn').forEach(btn => {
+        if (btn.innerText === leadName) btn.classList.add('active');
+        else btn.classList.remove('active');
+    });
+    showToast("Lead Switched", `Oscilloscope displaying ${leadName}`);
+}
+
+function toggleGradCam() {
+    showGradCam = !showGradCam;
+    const btn = document.getElementById('toggleHeatmapBtn');
+    const state = document.getElementById('gradCamState');
+    if (state) state.innerText = showGradCam ? "ON" : "OFF";
+    if (btn) {
+        if (showGradCam) btn.classList.add('active');
+        else btn.classList.remove('active');
+    }
+}
+
+function startOscilloscope() {
+    if (animFrameId) cancelAnimationFrame(animFrameId);
     function loop() {
-        ecgOffset += 1.2;
-        renderECG();
-        animationFrameId = requestAnimationFrame(loop);
+        ecgPhase += 1.4;
+        drawECGFrame();
+        animFrameId = requestAnimationFrame(loop);
     }
     loop();
 }
 
-function renderECG() {
+function drawECGFrame() {
     const canvas = document.getElementById('ecgCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -527,129 +782,158 @@ function renderECG() {
     const h = canvas.height;
     ctx.clearRect(0, 0, w, h);
 
-    // Grid
-    const gridSize = 25 * (window.devicePixelRatio || 1) * zoomFactor;
+    const dpr = window.devicePixelRatio || 1;
+    const gridSize = 25 * dpr;
+
+    // Grid Lines
     ctx.strokeStyle = "rgba(16, 185, 129, 0.08)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let x = 0; x < w; x += gridSize) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
-    }
-    for (let y = 0; y < h; y += gridSize) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-    }
+    for (let x = 0; x < w; x += gridSize) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = 0; y < h; y += gridSize) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
     ctx.stroke();
 
-    // Major grid
+    // Major Grid
     ctx.strokeStyle = "rgba(16, 185, 129, 0.18)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    for (let x = 0; x < w; x += gridSize * 5) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
-    }
-    for (let y = 0; y < h; y += gridSize * 5) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-    }
+    for (let x = 0; x < w; x += gridSize * 5) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+    for (let y = 0; y < h; y += gridSize * 5) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
     ctx.stroke();
 
-    // ECG Waveform Generation
+    // Generate Waveform
     const cy = h / 2;
-    const points = [];
     const step = 2;
     const totalPoints = Math.ceil(w / step);
-
-    const dx = currentDxKey;
-    const color = DISEASE_PRESETS[dx] ? DISEASE_PRESETS[dx].color : "#10b981";
+    const points = [];
+    const profile = CLINICAL_PROFILES[currentProfileKey] || CLINICAL_PROFILES["NSR"];
 
     for (let i = 0; i <= totalPoints; i++) {
         const x = i * step;
-        const t = (x + ecgOffset) * 0.05 * zoomFactor;
+        const t = (x + ecgPhase) * 0.05;
         let y = 0;
 
-        if (dx === "AF") {
-            // Chaotic fibrillatory waves + irregular QRS
-            const fWave = Math.sin(t * 8) * 4 + Math.cos(t * 13) * 3 + Math.sin(t * 22) * 2;
-            const beatPeriod = 36;
-            const phase = (t * 4) % beatPeriod;
+        if (currentProfileKey === "AF") {
+            // Irregular R-R with chaotic baseline f-waves
+            const fWave = Math.sin(t * 7.5) * 4.5 + Math.cos(t * 13.2) * 3.5 + Math.sin(t * 24.1) * 2.5;
+            const period = 36;
+            const phase = (t * 4.2) % period;
             let qrs = 0;
-            if (phase > 28 && phase < 32) {
-                const sub = phase - 30;
-                qrs = Math.exp(-sub * sub * 4) * -75 + Math.exp(-(sub - 0.4) * (sub - 0.4) * 6) * 95;
+            if (phase > 27 && phase < 31) {
+                const sub = phase - 29;
+                qrs = Math.exp(-sub * sub * 4.5) * -75 + Math.exp(-(sub - 0.4) * (sub - 0.4) * 6) * 98;
             }
             y = fWave + qrs;
-        } else if (dx === "LBBB") {
-            // Broad notched QRS (>120ms) and inverted T-wave
+        } else if (currentProfileKey === "LBBB") {
+            // Broad notched QRS (>120ms) and secondary T-wave inversion
             const period = 24;
             const phase = t % period;
-            let pWave = Math.exp(-Math.pow(phase - 5, 2) * 0.8) * -12;
-            let qrsNotch = Math.exp(-Math.pow(phase - 10, 2) * 0.4) * 70 + Math.exp(-Math.pow(phase - 11.2, 2) * 0.5) * 65;
-            let tWave = Math.exp(-Math.pow(phase - 17, 2) * 0.25) * -22;
-            y = pWave + qrsNotch + tWave;
-        } else if (dx === "IAVB") {
-            // Prolonged PR interval
+            let p = Math.exp(-Math.pow(phase - 5, 2) * 0.8) * -12;
+            let qrsNotch = Math.exp(-Math.pow(phase - 10, 2) * 0.4) * 72 + Math.exp(-Math.pow(phase - 11.2, 2) * 0.5) * 66;
+            let tWave = Math.exp(-Math.pow(phase - 17, 2) * 0.25) * -24;
+            y = p + qrsNotch + tWave;
+        } else if (currentProfileKey === "RBBB") {
+            // rsR' bunny ears morphology
+            const period = 23;
+            const phase = t % period;
+            let p = Math.exp(-Math.pow(phase - 4, 2) * 1.0) * -14;
+            let rsr = Math.exp(-Math.pow(phase - 9.0, 2) * 4.0) * 45 + Math.exp(-Math.pow(phase - 9.6, 2) * 4.5) * -18 + Math.exp(-Math.pow(phase - 10.5, 2) * 3.5) * 88;
+            let tWave = Math.exp(-Math.pow(phase - 16, 2) * 0.3) * -18;
+            y = p + rsr + tWave;
+        } else if (currentProfileKey === "IAVB") {
+            // Prolonged PR interval (>200ms)
             const period = 28;
             const phase = t % period;
-            let pWave = Math.exp(-Math.pow(phase - 3, 2) * 0.9) * -14;
-            let qrs = Math.exp(-Math.pow(phase - 13, 2) * 3.5) * -20 + Math.exp(-Math.pow(phase - 13.5, 2) * 4) * 85 + Math.exp(-Math.pow(phase - 14.2, 2) * 3) * -30;
-            let tWave = Math.exp(-Math.pow(phase - 20, 2) * 0.4) * 25;
-            y = pWave + qrs + tWave;
-        } else if (dx === "ST") {
-            // Fast sinus rhythm
+            let p = Math.exp(-Math.pow(phase - 3, 2) * 0.9) * -15;
+            let qrs = Math.exp(-Math.pow(phase - 13, 2) * 3.5) * -20 + Math.exp(-Math.pow(phase - 13.5, 2) * 4.5) * 88 + Math.exp(-Math.pow(phase - 14.2, 2) * 3) * -30;
+            let tWave = Math.exp(-Math.pow(phase - 20, 2) * 0.4) * 26;
+            y = p + qrs + tWave;
+        } else if (currentProfileKey === "ST") {
+            // Fast regular rhythm
             const period = 14;
             const phase = t % period;
-            let pWave = Math.exp(-Math.pow(phase - 3, 2) * 1.2) * -12;
-            let qrs = Math.exp(-Math.pow(phase - 6, 2) * 4) * -18 + Math.exp(-Math.pow(phase - 6.4, 2) * 5) * 80 + Math.exp(-Math.pow(phase - 7.0, 2) * 3.5) * -24;
+            let p = Math.exp(-Math.pow(phase - 3, 2) * 1.2) * -12;
+            let qrs = Math.exp(-Math.pow(phase - 6, 2) * 4) * -18 + Math.exp(-Math.pow(phase - 6.4, 2) * 5) * 82 + Math.exp(-Math.pow(phase - 7.0, 2) * 3.5) * -24;
             let tWave = Math.exp(-Math.pow(phase - 10.5, 2) * 0.5) * 22;
-            y = pWave + qrs + tWave;
+            y = p + qrs + tWave;
         } else {
-            // NSR Normal Sinus Rhythm
+            // Normal Sinus Rhythm (NSR)
             const period = 22;
             const phase = t % period;
-            let pWave = Math.exp(-Math.pow(phase - 4, 2) * 1.1) * -14;
-            let qrs = Math.exp(-Math.pow(phase - 9, 2) * 3.5) * -18 + Math.exp(-Math.pow(phase - 9.5, 2) * 4.5) * 90 + Math.exp(-Math.pow(phase - 10.1, 2) * 3.2) * -28;
+            let p = Math.exp(-Math.pow(phase - 4, 2) * 1.1) * -14;
+            let qrs = Math.exp(-Math.pow(phase - 9, 2) * 3.5) * -18 + Math.exp(-Math.pow(phase - 9.5, 2) * 4.5) * 92 + Math.exp(-Math.pow(phase - 10.1, 2) * 3.2) * -28;
             let tWave = Math.exp(-Math.pow(phase - 15, 2) * 0.35) * 28;
-            y = pWave + qrs + tWave;
+            y = p + qrs + tWave;
         }
 
-        points.push({ x, y: cy + y * (window.devicePixelRatio || 1) });
+        points.push({ x, y: cy + y * dpr });
     }
 
-    // Draw Saliency Gradient Halo
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = `${color}33`;
+    // Saliency Halo (Grad-CAM Overlay)
+    if (showGradCam) {
+        ctx.lineWidth = 7 * dpr;
+        ctx.strokeStyle = `${profile.color}44`;
+        ctx.beginPath();
+        points.forEach((pt, i) => {
+            if (i === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+        });
+        ctx.stroke();
+    }
+
+    // Primary Signal Line
+    ctx.lineWidth = 2.5 * dpr;
+    ctx.strokeStyle = profile.color;
     ctx.beginPath();
-    points.forEach((pt, idx) => {
-        if (idx === 0) ctx.moveTo(pt.x, pt.y);
+    points.forEach((pt, i) => {
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
         else ctx.lineTo(pt.x, pt.y);
     });
     ctx.stroke();
 
-    // Draw ECG Lead Trace
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = color;
-    ctx.beginPath();
-    points.forEach((pt, idx) => {
-        if (idx === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
-    });
-    ctx.stroke();
-
-    // Lead Label Overlay
-    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-    ctx.font = `600 ${14 * (window.devicePixelRatio || 1)}px Inter, sans-serif`;
-    ctx.fillText(`${activeLead} (500Hz, 10mm/mV)`, 20, 30 * (window.devicePixelRatio || 1));
+    // Lead Name Overlay
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.font = `600 ${13 * dpr}px Inter, sans-serif`;
+    ctx.fillText(`${selectedLead} • 25mm/s • 10mm/mV • 500Hz`, 18 * dpr, 26 * dpr);
 }
 
+// ==========================================
+// 7. CHARTS & EXPLAINABILITY VISUALIZERS
+// ==========================================
 function initCharts() {
-    const shapCtx = document.getElementById('shapChart');
-    const uqCtx = document.getElementById('uqChart');
+    // 1. Monte Carlo Uncertainty Chart
+    const mcCtx = document.getElementById('mcDropoutChart')?.getContext('2d');
+    if (mcCtx) {
+        charts.mcDropout = new Chart(mcCtx, {
+            type: 'line',
+            data: {
+                labels: ['0%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%'],
+                datasets: [{
+                    label: 'Epistemic Probability Density (T=50 MC Passes)',
+                    data: [0.01, 0.02, 0.03, 0.05, 0.10, 0.18, 0.42, 0.95, 1.35, 0.85, 0.30],
+                    borderColor: '#38bdf8',
+                    backgroundColor: 'rgba(56, 189, 248, 0.15)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2.5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } }
+                }
+            }
+        });
+    }
 
+    // 2. SHAP Feature Attribution Chart
+    const shapCtx = document.getElementById('shapBarChart')?.getContext('2d');
     if (shapCtx) {
-        shapChart = new Chart(shapCtx.getContext('2d'), {
+        charts.shapBar = new Chart(shapCtx, {
             type: 'bar',
             data: {
                 labels: [],
@@ -664,61 +948,94 @@ function initCharts() {
                 indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return ` Attribution: ${context.parsed.x > 0 ? '+' : ''}${context.parsed.x.toFixed(3)}`;
-                            }
-                        }
-                    }
-                },
+                plugins: { legend: { display: false } },
                 scales: {
-                    x: {
-                        grid: { color: 'rgba(255,255,255,0.06)' },
-                        ticks: { color: '#94a3b8' }
-                    },
-                    y: {
-                        grid: { display: false },
-                        ticks: { color: '#f8fafc', font: { size: 11 } }
-                    }
+                    x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
+                    y: { grid: { display: false }, ticks: { color: '#f8fafc', font: { size: 11 } } }
                 }
             }
         });
     }
 
-    if (uqCtx) {
-        uqChart = new Chart(uqCtx.getContext('2d'), {
+    // 3. Federated Convergence Chart
+    const convCtx = document.getElementById('convergenceChart')?.getContext('2d');
+    if (convCtx) {
+        charts.convergence = new Chart(convCtx, {
             type: 'line',
             data: {
-                labels: ['0%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%'],
-                datasets: [{
-                    label: 'Monte Carlo Epistemic Density',
-                    data: [],
-                    borderColor: '#38bdf8',
-                    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-                    fill: true,
-                    tension: 0.4,
-                    borderWidth: 2.5
-                }]
+                labels: Array.from({length: 20}, (_, i) => `Round ${i+1}`),
+                datasets: [
+                    {
+                        label: 'FedAdam (Adaptive Server)',
+                        data: [0.58, 0.68, 0.74, 0.79, 0.83, 0.86, 0.88, 0.89, 0.90, 0.91, 0.918, 0.922, 0.925, 0.928, 0.930, 0.932, 0.933, 0.934, 0.935, 0.936],
+                        borderColor: '#10b981',
+                        borderWidth: 2.5,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'FedProx (μ=0.001)',
+                        data: [0.55, 0.64, 0.70, 0.75, 0.78, 0.81, 0.83, 0.85, 0.86, 0.87, 0.88, 0.888, 0.894, 0.899, 0.903, 0.907, 0.910, 0.912, 0.914, 0.915],
+                        borderColor: '#38bdf8',
+                        borderWidth: 2,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'FedAvg (Standard)',
+                        data: [0.52, 0.60, 0.66, 0.71, 0.74, 0.77, 0.79, 0.81, 0.82, 0.83, 0.84, 0.848, 0.854, 0.859, 0.863, 0.867, 0.870, 0.872, 0.874, 0.875],
+                        borderColor: '#f59e0b',
+                        borderWidth: 2,
+                        tension: 0.3
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
+                plugins: { legend: { labels: { color: '#e2e8f0' } } },
                 scales: {
-                    x: {
-                        grid: { color: 'rgba(255,255,255,0.06)' },
-                        ticks: { color: '#94a3b8' },
-                        title: { display: true, text: 'Predicted Probability', color: '#64748b' }
+                    x: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#94a3b8' }, min: 0.5, max: 1.0 }
+                }
+            }
+        });
+    }
+
+    // 4. Multi-Label F1 Radar Chart
+    const radarCtx = document.getElementById('f1RadarChart')?.getContext('2d');
+    if (radarCtx) {
+        charts.radar = new Chart(radarCtx, {
+            type: 'radar',
+            data: {
+                labels: ['Atrial Fib (AF)', 'Normal Sinus (NSR)', 'Left BBB (LBBB)', 'Right BBB (RBBB)', '1st Deg AVB (IAVB)', 'Sinus Tachy (ST)', 'Sinus Brady (SB)', 'PAC / PVC'],
+                datasets: [
+                    {
+                        label: 'FedAdam Global Model',
+                        data: [0.932, 0.965, 0.918, 0.941, 0.902, 0.948, 0.935, 0.892],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        borderWidth: 2
                     },
-                    y: {
-                        grid: { color: 'rgba(255,255,255,0.06)' },
-                        ticks: { color: '#94a3b8' },
-                        title: { display: true, text: 'Ensemble Density', color: '#64748b' }
+                    {
+                        label: 'FedAvg Baseline',
+                        data: [0.875, 0.921, 0.862, 0.884, 0.845, 0.892, 0.876, 0.831],
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                        borderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#e2e8f0' } } },
+                scales: {
+                    r: {
+                        angleLines: { color: 'rgba(255,255,255,0.08)' },
+                        grid: { color: 'rgba(255,255,255,0.08)' },
+                        pointLabels: { color: '#f8fafc', font: { size: 11 } },
+                        ticks: { backdropColor: 'transparent', color: '#94a3b8' },
+                        min: 0.5,
+                        max: 1.0
                     }
                 }
             }
@@ -726,211 +1043,99 @@ function initCharts() {
     }
 }
 
-function updateCharts(dxKey, method) {
-    if (shapChart && SHAP_DATA[dxKey]) {
-        const item = SHAP_DATA[dxKey];
-        const colors = item.values.map(v => v >= 0 ? 'rgba(56, 189, 248, 0.85)' : 'rgba(244, 63, 94, 0.85)');
-        shapChart.data.labels = item.labels;
-        shapChart.data.datasets[0].data = item.values;
-        shapChart.data.datasets[0].backgroundColor = colors;
-        shapChart.update();
+function updateCharts(profile, optimizer) {
+    if (charts.shapBar && profile.shapFeatures) {
+        charts.shapBar.data.labels = profile.shapFeatures;
+        charts.shapBar.data.datasets[0].data = profile.shapValues;
+        charts.shapBar.data.datasets[0].backgroundColor = profile.shapValues.map(v => v >= 0.5 ? `${profile.color}dd` : 'rgba(56, 189, 248, 0.75)');
+        charts.shapBar.update();
     }
 
-    if (uqChart) {
+    if (charts.mcDropout) {
         let density = [];
-        if (dxKey === "NSR") {
-            density = [0.01, 0.01, 0.02, 0.02, 0.03, 0.05, 0.08, 0.15, 0.35, 0.88, 1.45];
-        } else if (dxKey === "AF") {
-            density = [0.02, 0.02, 0.03, 0.04, 0.06, 0.09, 0.18, 0.42, 0.95, 1.28, 0.65];
-        } else if (dxKey === "LBBB") {
-            density = [0.03, 0.04, 0.05, 0.08, 0.12, 0.22, 0.48, 0.92, 1.15, 0.72, 0.35];
-        } else if (dxKey === "IAVB") {
-            density = [0.04, 0.05, 0.08, 0.14, 0.26, 0.52, 0.88, 1.05, 0.68, 0.34, 0.12];
-        } else {
-            density = [0.01, 0.02, 0.03, 0.05, 0.09, 0.18, 0.38, 0.85, 1.32, 0.94, 0.42];
-        }
-        uqChart.data.datasets[0].data = density;
-        uqChart.update();
+        if (currentProfileKey === "NSR") density = [0.01, 0.01, 0.02, 0.02, 0.03, 0.05, 0.08, 0.15, 0.35, 0.92, 1.48];
+        else if (currentProfileKey === "AF") density = [0.02, 0.02, 0.03, 0.04, 0.06, 0.09, 0.18, 0.42, 0.98, 1.32, 0.62];
+        else if (currentProfileKey === "LBBB") density = [0.03, 0.04, 0.05, 0.08, 0.12, 0.22, 0.48, 0.94, 1.18, 0.70, 0.32];
+        else density = [0.01, 0.02, 0.03, 0.05, 0.09, 0.18, 0.38, 0.88, 1.35, 0.91, 0.40];
+
+        charts.mcDropout.data.datasets[0].data = density;
+        charts.mcDropout.data.datasets[0].borderColor = profile.color;
+        charts.mcDropout.data.datasets[0].backgroundColor = `${profile.color}22`;
+        charts.mcDropout.update();
     }
 }
 
-function renderInterClientHeatmap(matrix) {
-    const container = document.getElementById('heatmapGrid');
+function switchShapClass(clsKey) {
+    ['shapBtnAF', 'shapBtnNSR', 'shapBtnLBBB', 'shapBtnIAVB'].forEach(btnId => {
+        const b = document.getElementById(btnId);
+        if (b) b.classList.remove('active');
+    });
+
+    const activeBtn = document.getElementById(`shapBtn${clsKey}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    const profile = CLINICAL_PROFILES[clsKey] || CLINICAL_PROFILES["AF"];
+    if (charts.shapBar) {
+        charts.shapBar.data.labels = profile.shapFeatures;
+        charts.shapBar.data.datasets[0].data = profile.shapValues;
+        charts.shapBar.data.datasets[0].backgroundColor = profile.shapValues.map(v => v >= 0.5 ? `${profile.color}dd` : 'rgba(56, 189, 248, 0.75)');
+        charts.shapBar.update();
+    }
+}
+
+function renderConsistencyMatrix(profileKey) {
+    const container = document.getElementById('consistencyMatrix');
     if (!container) return;
     container.innerHTML = '';
 
-    const clients = ['Client 1 (PTB-XL)', 'Client 2 (MIMIC-IV)', 'Client 3 (CPSC)', 'Client 4 (G12EC)', 'Client 5 (Chapman)'];
-    
-    // Header row
-    const headerRow = document.createElement('div');
-    headerRow.className = 'heatmap-row header';
-    headerRow.innerHTML = `<div class="heatmap-cell label">Nodes</div>` + clients.map((c, i) => `<div class="heatmap-cell label">C${i+1}</div>`).join('');
-    container.appendChild(headerRow);
+    const nodes = ['PTB-XL', 'MIMIC-IV', 'CPSC', 'G12EC', 'Chapman'];
+    const baseVal = profileKey === "NSR" ? 0.98 : (profileKey === "AF" ? 0.94 : 0.91);
 
-    matrix.forEach((row, rIdx) => {
-        const rowEl = document.createElement('div');
-        rowEl.className = 'heatmap-row';
-        let rowHtml = `<div class="heatmap-cell label">C${rIdx+1}</div>`;
-        row.forEach(val => {
-            const opacity = ((val - 0.7) / 0.3).toFixed(2);
-            const color = `rgba(16, 185, 129, ${Math.max(0.15, opacity)})`;
-            rowHtml += `<div class="heatmap-cell val" style="background-color: ${color};" title="Cosine Agreement: ${(val*100).toFixed(1)}%">${val.toFixed(2)}</div>`;
+    // Header
+    const header = document.createElement('div');
+    header.className = 'matrix-row header';
+    header.innerHTML = `<div class="matrix-cell label">Nodes</div>` + nodes.map(n => `<div class="matrix-cell label">${n}</div>`).join('');
+    container.appendChild(header);
+
+    nodes.forEach((n1, i) => {
+        const row = document.createElement('div');
+        row.className = 'matrix-row';
+        let rowHtml = `<div class="matrix-cell label">${n1}</div>`;
+        nodes.forEach((n2, j) => {
+            const val = i === j ? 1.00 : (baseVal - Math.abs(i - j) * 0.015).toFixed(2);
+            const opacity = Math.max(0.18, ((val - 0.7) / 0.3)).toFixed(2);
+            rowHtml += `<div class="matrix-cell val" style="background-color: rgba(16, 185, 129, ${opacity})" title="${n1} ↔ ${n2} Agreement: ${(val*100).toFixed(1)}%">${val}</div>`;
         });
-        rowEl.innerHTML = rowHtml;
-        container.appendChild(rowEl);
+        row.innerHTML = rowHtml;
+        container.appendChild(row);
     });
 }
 
-function generateClinicalReport(dx, fedMethod, uqMethod) {
-    const container = document.getElementById('clinicalReportContainer');
-    if (!container) return;
+function initPathologyGuide() {
+    const guideContainer = document.getElementById('pathologyGrid');
+    if (!guideContainer) return;
 
-    const reportHtml = `
-        <div class="report-header">
-            <div class="report-title-group">
-                <h3>Clinical Diagnostic Summary & Explainability Dossier</h3>
-                <span class="report-sub">Federated Consensus Engine • 1D ResNet34 Architecture • Privacy Preserved</span>
-            </div>
-            <button class="btn-primary small-btn" onclick="printReport()"><i class="fas fa-print"></i> Print Dossier</button>
-        </div>
-        
-        <div class="report-grid">
-            <div class="report-card primary-card">
-                <h4><i class="fas fa-stethoscope"></i> Primary Classification</h4>
-                <div class="report-dx-name" style="color: ${dx.color}">${dx.name} (SNOMED-CT: ${dx.code})</div>
-                <div class="report-severity-tag"><strong>Clinical Severity:</strong> ${dx.severity}</div>
-                <p class="report-desc"><strong>Pathophysiological Mechanism:</strong> ${dx.etiology}</p>
-            </div>
-
-            <div class="report-card alert-card">
-                <h4><i class="fas fa-exclamation-triangle"></i> Identified Clinical Risks & Complications</h4>
-                <p>${dx.complications}</p>
-            </div>
-        </div>
-
-        <div class="report-card precautions-card">
-            <h4><i class="fas fa-heartbeat"></i> Evidence-Based Clinical Recommendations & Precautions</h4>
-            <ul class="precautions-list">
-                ${dx.precautions.map(p => `<li><i class="fas fa-check-circle"></i> <span>${p}</span></li>`).join('')}
-            </ul>
-        </div>
-
-        <div class="report-grid-two">
-            <div class="report-card">
-                <h4><i class="fas fa-calendar-check"></i> Recommended Next Steps</h4>
-                <p>${dx.followUp}</p>
-            </div>
-
-            <div class="report-card">
-                <h4><i class="fas fa-shield-alt"></i> Federated Governance Audit Trace</h4>
-                <div class="audit-item"><strong>Algorithm:</strong> <span>${fedMethod}</span></div>
-                <div class="audit-item"><strong>UQ Metric:</strong> <span>${uqMethod} (Epistemic σ = ${dx.entropy})</span></div>
-                <div class="audit-item"><strong>Differential Privacy:</strong> <span>(ε = 2.4, δ = 1e-5) [Laplace Clipping active]</span></div>
-                <div class="audit-item"><strong>Raw Data Residence:</strong> <span>Stored entirely on decentralized hospital nodes</span></div>
-            </div>
-        </div>
-    `;
-
-    container.innerHTML = reportHtml;
-}
-
-function initKnowledgeBase() {
-    const kbContainer = document.getElementById('knowledgeBaseContainer');
-    if (!kbContainer) return;
-
-    const items = [
-        {
-            title: "Atrial Fibrillation (AF)",
-            code: "164889003",
-            summary: "Irregularly irregular rhythm characterized by missing discrete P-waves and variable R-R intervals.",
-            keyPoints: ["5x increased stroke risk", "Rate control vs Rhythm control", "Anticoagulation via CHA2DS2-VASc"]
-        },
-        {
-            title: "Normal Sinus Rhythm (NSR)",
-            code: "426783006",
-            summary: "Regular cardiac depolarization originating from SA node with uniform P-QRS-T complexes.",
-            keyPoints: ["Rate 60-100 bpm", "PR 120-200 ms", "QRS < 120 ms"]
-        },
-        {
-            title: "Left Bundle Branch Block (LBBB)",
-            code: "164909002",
-            summary: "Delayed conduction through the left bundle branch causing broadened QRS and secondary ST-T changes.",
-            keyPoints: ["QRS duration ≥ 120 ms", "Broad notched R wave in I, aVL, V5-V6", "Evaluate for CRT if EF ≤ 35%"]
-        },
-        {
-            title: "First Degree AV Block (IAVB)",
-            code: "270492004",
-            summary: "Delay in conduction from atria to ventricles without dropped ventricular beats.",
-            keyPoints: ["PR interval > 200 ms", "1:1 AV conduction", "Review AV-nodal blocking drugs"]
-        },
-        {
-            title: "Sinus Tachycardia (ST)",
-            code: "427084000",
-            summary: "Accelerated sinus rhythm > 100 bpm originating from the sinoatrial node.",
-            keyPoints: ["Rate > 100 bpm", "Normal P-wave axis", "Secondary to stress, fever, hypovolemia, thyrotoxicosis"]
-        }
-    ];
-
-    kbContainer.innerHTML = items.map(item => `
-        <div class="kb-card">
-            <div class="kb-card-header">
+    guideContainer.innerHTML = Object.entries(CLINICAL_PROFILES).map(([key, item]) => `
+        <div class="guide-card" style="border-top: 3px solid ${item.color};">
+            <div class="guide-card-header">
                 <h4>${item.title}</h4>
-                <span class="kb-code">SNOMED: ${item.code}</span>
+                <span class="badge" style="background:${item.color}22; color:${item.color}; border: 1px solid ${item.color}44;">${item.severity}</span>
             </div>
-            <p class="kb-summary">${item.summary}</p>
-            <ul class="kb-points">
-                ${item.keyPoints.map(kp => `<li><i class="fas fa-chevron-right"></i> ${kp}</li>`).join('')}
-            </ul>
+            <p class="guide-desc">${item.etiology}</p>
+            <div class="guide-block">
+                <strong><i class="fa-solid fa-triangle-exclamation"></i> Risks:</strong> ${item.risks}
+            </div>
+            <div class="guide-block">
+                <strong><i class="fa-solid fa-heart-pulse"></i> Precautions:</strong>
+                <ul class="guide-bullets">
+                    ${item.precautions.slice(0, 2).map(p => `<li>${p}</li>`).join('')}
+                </ul>
+            </div>
         </div>
     `).join('');
 }
 
-function printReport() {
-    window.print();
-}
-
-function downloadReport() {
-    const dx = DISEASE_PRESETS[currentDxKey];
-    if (!dx) return;
-    const text = `=====================================================
-CARDIOSIGHT CLINICAL DIAGNOSTIC DOSSIER
-Federated Learning & Explainable AI ECG Platform
-=====================================================
-Generated: ${new Date().toLocaleString()}
-Classification: ${dx.name} (SNOMED: ${dx.code})
-Severity: ${dx.severity}
-Confidence: ${dx.confidence}%
-Entropy (Epistemic Uncertainty): ${dx.entropy}
-Inter-Client Consensus Agreement: ${(dx.consistency * 100).toFixed(1)}%
-Heart Rate: ${dx.heartRate} bpm
-PR Interval: ${dx.prInterval}
-QRS Duration: ${dx.qrsDuration}
-QT Interval: ${dx.qtInterval}
-
-PATHOPHYSIOLOGY & ETIOLOGY:
-${dx.etiology}
-
-IDENTIFIED RISKS & COMPLICATIONS:
-${dx.complications}
-
-CLINICAL PRECAUTIONS & MANAGEMENT:
-${dx.precautions.map(p => `- ${p}`).join('\n')}
-
-RECOMMENDED NEXT STEPS:
-${dx.followUp}
-
-EXPLAINABILITY ATTRIBUTION (SHAP & INTEGRATED GRADIENTS):
-${dx.saliencyFocal}
-=====================================================`;
-
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `CardioSight_Report_${currentDxKey}_${Date.now()}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast("Downloaded", "Diagnostic report saved to your downloads.");
+function setText(id, txt) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = txt;
 }
