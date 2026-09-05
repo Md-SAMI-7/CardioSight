@@ -2,31 +2,41 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CardioSight | Uncertainty-Aware Explainable Federated ECG Platform</title>
-    <meta name="description" content="CardioSight: 12-Lead ECG AI Platform powered by Federated Learning, Grad-CAM, SHAP, and MC Dropout Uncertainty Quantification.">
-    <meta name="theme-color" content="#0f172a">
-    <link rel="manifest" href="manifest.json">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CardioSight PRO | Explainable Federated 12-Lead ECG Intelligence</title>
+    <meta name="description" content="Decentralized multi-label ECG diagnosis platform with uncertainty quantification (MC Dropout) and explainability (SHAP & Grad-CAM).">
+    
+    <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Stylesheet -->
     <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#030712">
 </head>
 <body>
-    <div class="app-wrapper">
-        <div id="toastNotification" class="toast-popup">
-            <i class="fa-solid fa-circle-check toast-icon"></i>
-            <div class="toast-content">
-                <strong id="toastTitle">File Processed</strong>
-                <span id="toastMsg">Ready for diagnostic inference</span>
-            </div>
+    <!-- Toast Notification -->
+    <div class="toast-container" id="toastNotification">
+        <div class="toast-icon"><i class="fa-solid fa-circle-check"></i></div>
+        <div class="toast-body">
+            <h5 id="toastTitle">System Notification</h5>
+            <p id="toastMsg">Action executed successfully.</p>
         </div>
+    </div>
 
-        <header class="top-nav">
-            <div class="nav-brand">
-                <div class="brand-logo"><i class="fa-solid fa-heart-pulse pulse-anim"></i></div>
+    <div class="app-layout">
+        <!-- Top Navigation -->
+        <header class="app-header">
+            <div class="header-brand" onclick="switchSection('studio')">
+                <div class="brand-logo-glow">
+                    <i class="fa-solid fa-heart-pulse"></i>
+                </div>
                 <div class="brand-text">
                     <span class="brand-title">CardioSight<span class="brand-badge">PRO</span></span>
                     <span class="brand-sub">Federated 12-Lead ECG Intelligence & XAI</span>
@@ -35,12 +45,12 @@
             <nav class="desktop-nav">
                 <button class="nav-link active" onclick="switchSection('studio')"><i class="fa-solid fa-stethoscope"></i> Diagnostic Studio</button>
                 <button class="nav-link" onclick="switchSection('xai')"><i class="fa-solid fa-brain"></i> XAI & Uncertainty</button>
-                <button class="nav-link" onclick="switchSection('federated')"><i class="fa-solid fa-network-wired"></i> Federated Models</button>
+                <button class="nav-link" onclick="switchSection('federated')"><i class="fa-solid fa-network-wired"></i> Federated Models & F1 Scores</button>
                 <button class="nav-link" onclick="switchSection('guide')"><i class="fa-solid fa-book-medical"></i> Clinical Guide</button>
                 <button class="nav-link" onclick="switchSection('about')"><i class="fa-solid fa-users-gear"></i> Team & About</button>
             </nav>
             <div class="nav-actions">
-                <div class="status-indicator online"><span class="dot"></span><span class="status-label">FL Cluster Active</span></div>
+                <div class="status-indicator online"><span class="dot"></span><span class="status-label">FL Cluster Online</span></div>
                 <a href="https://github.com/Md-SAMI-7/CardioSight" target="_blank" class="github-btn" title="View Source on GitHub"><i class="fa-brands fa-github"></i></a>
             </div>
         </header>
@@ -51,15 +61,15 @@
                 <div class="section-header">
                     <div>
                         <h2>12-Lead ECG Diagnostic Studio</h2>
-                        <p>Upload WFDB clinical headers or select patient test recordings to perform real-time federated classification, XAI saliency mapping, and predictive uncertainty estimation.</p>
+                        <p>Upload WFDB clinical headers or select patient test recordings to perform real-time federated classification, multi-lead oscilloscope rendering, and XAI saliency analysis.</p>
                     </div>
                     <div class="model-select-wrap">
-                        <label><i class="fa-solid fa-sliders"></i> Active Optimizer:</label>
+                        <label><i class="fa-solid fa-sliders"></i> Active Federated Optimizer:</label>
                         <select id="selectedOptimizer" class="select-box" onchange="onOptimizerChange()">
                             <option value="fedadam" selected>FedAdam (Adaptive Server Optimizer - Recommended)</option>
                             <option value="fedprox">FedProx (Proximal Regularization μ=0.001)</option>
                             <option value="fedavg">FedAvg (Standard Federated Averaging)</option>
-                            <option value="centralized">Centralized Baseline (Upper Bound)</option>
+                            <option value="centralized">Centralized Baseline (Aggregated Upper Bound)</option>
                         </select>
                     </div>
                 </div>
@@ -76,54 +86,55 @@
                                 <input type="file" id="fileInput" accept=".hea,.HEA,.mat,.MAT,.dat,.DAT,.csv,.CSV,.txt,.TXT,text/plain,*" style="display:none">
                                 <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
                                 <h4 id="dropzoneTitle">Drop .hea / .mat / .csv / .txt files here</h4>
-                                <p id="dropzoneSub">Or click anywhere in this box to browse files</p>
+                                <p id="dropzoneSub">Or click anywhere in this box to browse local files</p>
                                 <div class="drop-btn-row">
-                                    <span class="browse-btn"><i class="fa-solid fa-folder-open"></i> Browse File</span>
+                                    <span class="browse-btn"><i class="fa-solid fa-folder-open"></i> Browse Files</span>
                                     <button type="button" class="sample-load-btn" onclick="event.stopPropagation(); loadSampleWFDBFile();">
-                                        <i class="fa-solid fa-vial"></i> Load Sample .HEA
+                                        <i class="fa-solid fa-vial"></i> Load Sample JS00001.hea
                                     </button>
                                 </div>
                             </div>
 
                             <div class="form-group mt-3">
-                                <label for="presetSelector"><i class="fa-solid fa-hospital-user"></i> Or Load Validated Clinical Preset:</label>
+                                <label for="presetSelector"><i class="fa-solid fa-hospital-user"></i> Or Select Multi-Center Preset Recording:</label>
                                 <select id="presetSelector" class="select-box" onchange="loadPresetCase()">
-                                    <option value="JS01051" selected>Record #JS01051 - Normal Sinus Rhythm (NSR)</option>
-                                    <option value="AF_CASE_204">Record #AF204 - Atrial Fibrillation (AF) + TAb</option>
-                                    <option value="LBBB_CASE_711">Record #LBBB711 - Left Bundle Branch Block (LBBB) + LAD</option>
-                                    <option value="IAVB_CASE_409">Record #AVB409 - 1st-Degree AV Block (IAVB) + SB</option>
-                                    <option value="RBBB_CASE_518">Record #RBBB518 - Right Bundle Branch Block (RBBB) + PAC</option>
-                                    <option value="STACH_CASE_833">Record #ST833 - Sinus Tachycardia (STach) + QAb</option>
+                                    <option value="JS00001" selected>Record #JS00001 - Atrial Fibrillation (AF) + RBBB [Chapman 85M]</option>
+                                    <option value="JS01051">Record #JS01051 - Normal Sinus Rhythm (NSR) [Chapman 64M]</option>
+                                    <option value="AF_CASE_204">Record #AF204 - Atrial Fibrillation (AF) + TAb [PTB-XL 72F]</option>
+                                    <option value="LBBB_CASE_711">Record #LBBB711 - Left Bundle Branch Block (LBBB) [MIMIC 68M]</option>
+                                    <option value="IAVB_CASE_409">Record #AVB409 - 1st-Degree AV Block (IAVB) [CPSC 59M]</option>
+                                    <option value="RBBB_CASE_518">Record #RBBB518 - Right Bundle Branch Block (RBBB) [Georgia 61F]</option>
+                                    <option value="STACH_CASE_833">Record #ST833 - Sinus Tachycardia (STach) [PTB-XL 34F]</option>
                                 </select>
                             </div>
 
                             <div class="patient-metadata-grid" id="metadataDisplay">
-                                <div class="meta-card"><span class="meta-title">Record ID</span><span class="meta-val" id="metaId">JS01051</span></div>
+                                <div class="meta-card"><span class="meta-title">Record ID</span><span class="meta-val" id="metaId">JS00001</span></div>
                                 <div class="meta-card"><span class="meta-title">Source Node</span><span class="meta-val" id="metaSource">Chapman-Shaoxing</span></div>
-                                <div class="meta-card"><span class="meta-title">Patient Age / Sex</span><span class="meta-val" id="metaAgeSex">64 yrs / Male</span></div>
-                                <div class="meta-card"><span class="meta-title">Sampling / Leads</span><span class="meta-val" id="metaFormat">500 Hz / 12-Lead</span></div>
+                                <div class="meta-card"><span class="meta-title">Patient Age / Sex</span><span class="meta-val" id="metaAgeSex">85 yrs / Male</span></div>
+                                <div class="meta-card"><span class="meta-title">Sampling / Format</span><span class="meta-val" id="metaFormat">500 Hz / 12-Lead</span></div>
                             </div>
 
                             <button class="btn btn-primary btn-block btn-lg mt-3" id="analyzeBtn" onclick="runComprehensiveAnalysis()">
-                                <i class="fa-solid fa-bolt"></i> Run Federated AI Analysis
+                                <i class="fa-solid fa-bolt"></i> Run Federated AI Inference
                             </button>
                         </div>
 
                         <div class="card diagnostic-card">
                             <div class="card-header">
                                 <h3><i class="fa-solid fa-clipboard-check"></i> Multi-Label Prediction</h3>
-                                <span class="badge badge-success" id="predStatus">Analysis Ready</span>
+                                <span class="badge badge-success" id="predStatus">Inference Active</span>
                             </div>
                             <div class="primary-prediction-box">
                                 <span class="pred-caption">Primary Detected Pathology</span>
-                                <div class="primary-pred-title" id="primaryPredTitle">Normal Sinus Rhythm (NSR)</div>
+                                <div class="primary-pred-title" id="primaryPredTitle">Atrial Fibrillation (AF)</div>
                                 <div class="badge-row" id="secondaryBadges">
-                                    <span class="tag-badge">No Acute Arrhythmia</span>
-                                    <span class="tag-badge">QRS Morphology Preserved</span>
+                                    <span class="tag-badge">Chaotic f-waves</span>
+                                    <span class="tag-badge">R-R Irregularity</span>
                                 </div>
                             </div>
                             <div class="probability-bars-container">
-                                <h4 class="sub-heading">Top Condition Probabilities</h4>
+                                <h4 class="sub-heading">Multi-Label Probability Distribution</h4>
                                 <div id="probabilityBarsList"></div>
                             </div>
                         </div>
@@ -133,7 +144,7 @@
                         <div class="card ecg-canvas-card">
                             <div class="canvas-toolbar">
                                 <div class="lead-selector-group">
-                                    <span class="toolbar-label"><i class="fa-solid fa-wave-square"></i> Lead:</span>
+                                    <span class="toolbar-label"><i class="fa-solid fa-wave-square"></i> Active Lead:</span>
                                     <div class="lead-pill-group" id="leadPills">
                                         <button class="pill-btn active" onclick="selectLead('Lead II')">Lead II</button>
                                         <button class="pill-btn" onclick="selectLead('Lead I')">Lead I</button>
@@ -147,11 +158,11 @@
                                         <button class="pill-btn" onclick="selectLead('V4')">V4</button>
                                         <button class="pill-btn" onclick="selectLead('V5')">V5</button>
                                         <button class="pill-btn" onclick="selectLead('V6')">V6</button>
-                                        <button class="pill-btn" onclick="selectLead('All 12 Leads')">All 12 Leads</button>
+                                        <button class="pill-btn special-pill" onclick="selectLead('All 12 Leads')"><i class="fa-solid fa-layer-group"></i> All 12 Leads</button>
                                     </div>
                                 </div>
                                 <div class="canvas-controls">
-                                    <button class="control-btn" id="toggleHeatmapBtn" onclick="toggleGradCamOverlay()">
+                                    <button class="control-btn" id="toggleHeatmapBtn" onclick="toggleGradCam()">
                                         <i class="fa-solid fa-fire"></i> Grad-CAM: <strong id="gradCamState">ON</strong>
                                     </button>
                                     <button class="control-btn" onclick="resetCanvasZoom()">
@@ -163,26 +174,26 @@
                             <div class="canvas-container" id="canvasWrapper">
                                 <canvas id="ecgCanvas"></canvas>
                                 <div class="canvas-overlay-legend">
-                                    <span class="legend-item"><span class="legend-box grid-box"></span> 25mm/s Grid</span>
-                                    <span class="legend-item"><span class="legend-box sig-box"></span> ECG Electrogram</span>
-                                    <span class="legend-item"><span class="legend-box cam-box"></span> Grad-CAM Saliency</span>
+                                    <span class="legend-item"><span class="legend-box grid-box"></span> Standard 25mm/s Grid</span>
+                                    <span class="legend-item"><span class="legend-box sig-box"></span> ECG Signal (10mm/mV)</span>
+                                    <span class="legend-item"><span class="legend-box cam-box"></span> Grad-CAM Saliency Attribution</span>
                                 </div>
                             </div>
 
                             <div class="waveform-metrics-bar">
-                                <div class="wf-metric"><span>Heart Rate:</span> <strong id="wfHR">72 bpm</strong></div>
-                                <div class="wf-metric"><span>PR Interval:</span> <strong id="wfPR">160 ms</strong></div>
+                                <div class="wf-metric"><span>Heart Rate:</span> <strong id="wfHR">142 bpm</strong></div>
+                                <div class="wf-metric"><span>PR Interval:</span> <strong id="wfPR">Absent</strong></div>
                                 <div class="wf-metric"><span>QRS Duration:</span> <strong id="wfQRS">88 ms</strong></div>
-                                <div class="wf-metric"><span>QT / QTc:</span> <strong id="wfQT">390 / 420 ms</strong></div>
-                                <div class="wf-metric"><span>Mean RR:</span> <strong id="wfRR">833 ms</strong></div>
+                                <div class="wf-metric"><span>QT / QTc:</span> <strong id="wfQT">360 ms</strong></div>
+                                <div class="wf-metric"><span>R-R Rhythm:</span> <strong id="wfRR">Irregular (380-690ms)</strong></div>
                             </div>
                         </div>
 
                         <div class="card clinical-report-card">
                             <div class="card-header">
-                                <h3><i class="fa-solid fa-notes-medical"></i> Automated Clinical Reasoning & Precautions</h3>
-                                <button class="btn btn-sm btn-outline" onclick="downloadPrecautionsReport()">
-                                    <i class="fa-solid fa-file-arrow-down"></i> Export Medical Report
+                                <h3><i class="fa-solid fa-notes-medical"></i> Automated Clinical Reasoning, Etiology & Precautions</h3>
+                                <button class="btn btn-sm btn-outline" onclick="downloadReport()">
+                                    <i class="fa-solid fa-file-arrow-down"></i> Export Clinical Dossier
                                 </button>
                             </div>
                             <div class="report-content" id="reportContent"></div>
@@ -196,20 +207,20 @@
                 <div class="section-header">
                     <div>
                         <h2>Explainability (XAI) & Uncertainty Quantification</h2>
-                        <p>Explore 1D Grad-CAM salience activation maps, SHAP cardiological feature attributions, and Monte Carlo Dropout predictive uncertainty.</p>
+                        <p>Explore 1D Grad-CAM salience activation maps, SHAP cardiological feature attributions, and Monte Carlo Dropout predictive uncertainty distributions.</p>
                     </div>
                 </div>
                 <div class="xai-grid">
                     <div class="card">
                         <div class="card-header">
                             <h3><i class="fa-solid fa-chart-line"></i> Monte Carlo Dropout Predictive Uncertainty</h3>
-                            <span class="badge badge-info">30 Stochastic Passes</span>
+                            <span class="badge badge-info">50 Stochastic Forward Passes</span>
                         </div>
-                        <p class="card-desc">Evaluates model epistemic uncertainty by keeping dropout active at inference time to generate a distribution of prediction probabilities.</p>
+                        <p class="card-desc">Evaluates model epistemic uncertainty by keeping Monte Carlo dropout active during inference to estimate the posterior distribution of predictions.</p>
                         <div class="uncertainty-meters-grid">
-                            <div class="u-meter-card"><span class="u-title">Predictive Entropy</span><div class="u-value" id="valEntropy">0.142 nats</div><div class="u-badge low" id="badgeEntropy">Low Uncertainty / High Confidence</div></div>
-                            <div class="u-meter-card"><span class="u-title">Mutual Information</span><div class="u-value" id="valMI">0.038 nats</div><div class="u-badge low" id="badgeMI">Model Agreement</div></div>
-                            <div class="u-meter-card"><span class="u-title">Epistemic Variance (σ²)</span><div class="u-value" id="valVar">0.012</div><div class="u-badge low" id="badgeVar">Stable Representations</div></div>
+                            <div class="u-meter-card"><span class="u-title">Shannon Predictive Entropy</span><div class="u-value" id="valEntropy">0.148 nats</div><div class="u-badge low" id="badgeEntropy">High Confidence (Valid)</div></div>
+                            <div class="u-meter-card"><span class="u-title">Mutual Information (Epistemic)</span><div class="u-value" id="valMI">0.032 nats</div><div class="u-badge low" id="badgeMI">Node Consensus</div></div>
+                            <div class="u-meter-card"><span class="u-title">Ensemble Variance (σ²)</span><div class="u-value" id="valVar">0.0041</div><div class="u-badge low" id="badgeVar">Stable Weights</div></div>
                         </div>
                         <div class="chart-wrapper mt-3"><canvas id="mcDropoutChart"></canvas></div>
                     </div>
@@ -219,7 +230,7 @@
                             <h3><i class="fa-solid fa-handshake-angle"></i> Cross-Hospital Explanation Consistency</h3>
                             <span class="badge badge-warning">Pairwise Cosine Matrix</span>
                         </div>
-                        <p class="card-desc">Quantifies whether explanations generated by different hospital client models agree when diagnosing the same physiological rhythm.</p>
+                        <p class="card-desc">Quantifies whether explanations generated by different decentralized hospital client models agree when diagnosing the exact same patient rhythm.</p>
                         <div class="consistency-matrix-wrap" id="consistencyMatrix"></div>
                         <div class="correlation-callout mt-3">
                             <i class="fa-solid fa-circle-info"></i>
@@ -231,17 +242,19 @@
                         <div class="card-header">
                             <h3><i class="fa-solid fa-chart-column"></i> SHAP Global & Local Cardiological Feature Attributions</h3>
                             <div class="btn-group">
-                                <button class="btn btn-sm btn-outline active" id="shapBtnAF" onclick="loadShapClass('AF')">AFIB</button>
-                                <button class="btn btn-sm btn-outline" id="shapBtnNSR" onclick="loadShapClass('NSR')">NSR</button>
-                                <button class="btn btn-sm btn-outline" id="shapBtnLBBB" onclick="loadShapClass('LBBB')">LBBB</button>
-                                <button class="btn btn-sm btn-outline" id="shapBtnIAVB" onclick="loadShapClass('IAVB')">IAVB</button>
+                                <button class="btn btn-sm btn-outline active" id="shapBtnAF" onclick="switchShapClass('AF')">AFIB</button>
+                                <button class="btn btn-sm btn-outline" id="shapBtnNSR" onclick="switchShapClass('NSR')">NSR</button>
+                                <button class="btn btn-sm btn-outline" id="shapBtnLBBB" onclick="switchShapClass('LBBB')">LBBB</button>
+                                <button class="btn btn-sm btn-outline" id="shapBtnRBBB" onclick="switchShapClass('RBBB')">RBBB</button>
+                                <button class="btn btn-sm btn-outline" id="shapBtnIAVB" onclick="switchShapClass('IAVB')">IAVB</button>
+                                <button class="btn btn-sm btn-outline" id="shapBtnST" onclick="switchShapClass('ST')">STach</button>
                             </div>
                         </div>
-                        <p class="card-desc">Shapley Additive Explanations on clinical fiducial parameters: Mean RR interval, P-wave amplitude, QRS duration, PR interval, QT interval, and T-wave morphology.</p>
+                        <p class="card-desc">Shapley Additive Explanations (SHAP) on clinical electrophysiological parameters: Mean RR interval, P-wave amplitude, QRS duration, PR interval, and QT dispersion.</p>
                         <div class="shap-layout">
                             <div class="chart-wrapper"><canvas id="shapBarChart"></canvas></div>
                             <div class="shap-image-preview">
-                                <h4>Global Beeswarm Feature Impact</h4>
+                                <h4>Global Beeswarm Feature Importance</h4>
                                 <img src="figures/shap_beeswarm_AF.png" alt="SHAP Beeswarm Plot" id="shapBeeswarmImg" class="img-fluid rounded">
                             </div>
                         </div>
@@ -249,54 +262,60 @@
                 </div>
             </section>
 
-            <!-- SECTION 3: FEDERATED MODELS -->
+            <!-- SECTION 3: FEDERATED MODELS & CLIENT F1 TABLES -->
             <section id="federated-section" class="app-section">
                 <div class="section-header">
                     <div>
-                        <h2>Federated Optimization & Client Topography</h2>
-                        <p>Evaluate multi-hospital collaborative training convergence, non-IID data distribution, and comparative performance across FedAvg, FedProx, and FedAdam.</p>
+                        <h2>Federated Optimization & Client-Specific F1 Performance</h2>
+                        <p>Evaluate multi-hospital collaborative training convergence, non-IID data distribution, and detailed individual F1 scorecards for each participating hospital node.</p>
                     </div>
                 </div>
                 <div class="federated-grid">
                     <div class="card full-width">
                         <div class="card-header">
-                            <h3><i class="fa-solid fa-hospital"></i> Participating Clinical Nodes (5 Siloed Hospitals)</h3>
+                            <h3><i class="fa-solid fa-hospital"></i> Participating Clinical Nodes (5 Siloed Hospital Sites)</h3>
                             <span class="badge badge-success">5 Hospital Nodes (84,207 Total Records)</span>
                         </div>
                         <div class="client-nodes-grid">
-                            <div class="node-card"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>Chapman-Shaoxing</h4><span class="node-loc">Shaoxing, China</span><div class="node-stat"><strong>10,247</strong> records</div><div class="node-tag">Dominant: NSR, SB, AF</div></div>
-                            <div class="node-card"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>CPSC-2018</h4><span class="node-loc">China Challenge</span><div class="node-stat"><strong>6,877</strong> records</div><div class="node-tag">Dominant: AF, IAVB, RBBB</div></div>
-                            <div class="node-card"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>Georgia (Emory)</h4><span class="node-loc">Atlanta, USA</span><div class="node-stat"><strong>10,344</strong> records</div><div class="node-tag">Dominant: LAD, PAC, STach</div></div>
-                            <div class="node-card"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>Ningbo First</h4><span class="node-loc">Ningbo, China</span><div class="node-stat"><strong>34,905</strong> records</div><div class="node-tag">Dominant: SB, STach, TAb</div></div>
-                            <div class="node-card"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>PTB-XL</h4><span class="node-loc">Germany</span><div class="node-stat"><strong>21,837</strong> records</div><div class="node-tag">Dominant: LBBB, QAb, NSR</div></div>
+                            <div class="node-card" onclick="showClientF1Table('chapman')"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>Chapman-Shaoxing</h4><span class="node-loc">Shaoxing, China</span><div class="node-stat"><strong>10,247</strong> records</div><div class="node-tag">Dominant: NSR, SB, AF</div></div>
+                            <div class="node-card" onclick="showClientF1Table('cpsc')"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>CPSC-2018</h4><span class="node-loc">China Challenge</span><div class="node-stat"><strong>6,877</strong> records</div><div class="node-tag">Dominant: AF, IAVB, RBBB</div></div>
+                            <div class="node-card" onclick="showClientF1Table('georgia')"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>Georgia (Emory)</h4><span class="node-loc">Atlanta, USA</span><div class="node-stat"><strong>10,344</strong> records</div><div class="node-tag">Dominant: LAD, PAC, STach</div></div>
+                            <div class="node-card" onclick="showClientF1Table('ningbo')"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>Ningbo First</h4><span class="node-loc">Ningbo, China</span><div class="node-stat"><strong>34,905</strong> records</div><div class="node-tag">Dominant: SB, STach, TAb</div></div>
+                            <div class="node-card" onclick="showClientF1Table('ptbxl')"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>PTB-XL Germany</h4><span class="node-loc">Germany</span><div class="node-stat"><strong>21,837</strong> records</div><div class="node-tag">Dominant: LBBB, QAb, NSR</div></div>
                         </div>
                     </div>
 
                     <div class="card">
-                        <div class="card-header"><h3><i class="fa-solid fa-arrow-trend-up"></i> Training Convergence (30 Rounds)</h3><span class="badge badge-info">Micro/Macro F1-Score</span></div>
+                        <div class="card-header"><h3><i class="fa-solid fa-arrow-trend-up"></i> Multi-Round Convergence (30 Rounds)</h3><span class="badge badge-info">F1 Score Progression</span></div>
                         <div class="chart-wrapper"><canvas id="convergenceChart"></canvas></div>
                     </div>
 
                     <div class="card">
-                        <div class="card-header"><h3><i class="fa-solid fa-bullseye"></i> Hospital Generalization Comparison</h3><span class="badge badge-primary">Test Partition F1</span></div>
+                        <div class="card-header"><h3><i class="fa-solid fa-bullseye"></i> Multi-Label F1 Radar Benchmark</h3><span class="badge badge-primary">Model Comparison</span></div>
                         <div class="chart-wrapper"><canvas id="f1RadarChart"></canvas></div>
                     </div>
 
+                    <!-- DEDICATED SEPARATE CLIENT F1 TABLES -->
                     <div class="card full-width">
-                        <div class="card-header"><h3><i class="fa-solid fa-table"></i> Final Experimental Results Summary</h3></div>
-                        <div class="table-responsive">
-                            <table class="data-table">
-                                <thead>
-                                    <tr><th>Optimization Algorithm</th><th>Chapman F1</th><th>CPSC F1</th><th>Georgia F1</th><th>Ningbo F1</th><th>PTB-XL F1</th><th>Mean Macro F1</th><th>Consistency Score</th></tr>
-                                </thead>
-                                <tbody>
-                                    <tr class="highlight-row"><td><strong>FedAdam (Adaptive Server)</strong></td><td><strong>0.767</strong></td><td><strong>0.612</strong></td><td><strong>0.546</strong></td><td><strong>0.808</strong></td><td><strong>0.774</strong></td><td><span class="badge badge-success">0.701</span></td><td><span class="badge badge-success">0.789</span></td></tr>
-                                    <tr><td><strong>FedProx (μ=0.001)</strong></td><td>0.748</td><td>0.364</td><td>0.635</td><td>0.789</td><td>0.752</td><td><span class="badge badge-info">0.658</span></td><td><span class="badge badge-info">0.768</span></td></tr>
-                                    <tr><td><strong>FedAvg (Standard)</strong></td><td>0.699</td><td>0.310</td><td>0.592</td><td>0.756</td><td>0.718</td><td><span class="badge badge-warning">0.615</span></td><td><span class="badge badge-warning">0.742</span></td></tr>
-                                    <tr><td><strong>Centralized Baseline (Upper Bound)</strong></td><td>0.814</td><td>0.781</td><td>0.745</td><td>0.808</td><td>0.822</td><td><span class="badge badge-secondary">0.794</span></td><td><span class="badge badge-secondary">0.812</span></td></tr>
-                                </tbody>
-                            </table>
+                        <div class="card-header">
+                            <div>
+                                <h3><i class="fa-solid fa-table-list"></i> Detailed Client-Wise Performance Scorecards</h3>
+                                <p class="card-sub-p">Select a hospital client tab below to view dedicated per-disease F1-scores, precision, recall, and standard deviation.</p>
+                            </div>
                         </div>
+                        
+                        <!-- Client Selector Tab Bar -->
+                        <div class="client-tabs-bar">
+                            <button class="client-tab-btn active" id="tab-all" onclick="showClientF1Table('all')"><i class="fa-solid fa-globe"></i> All Hospitals Overview</button>
+                            <button class="client-tab-btn" id="tab-chapman" onclick="showClientF1Table('chapman')"><i class="fa-solid fa-hospital-user"></i> Client 1: Chapman-Shaoxing</button>
+                            <button class="client-tab-btn" id="tab-cpsc" onclick="showClientF1Table('cpsc')"><i class="fa-solid fa-hospital-user"></i> Client 2: CPSC-2018</button>
+                            <button class="client-tab-btn" id="tab-georgia" onclick="showClientF1Table('georgia')"><i class="fa-solid fa-hospital-user"></i> Client 3: Georgia Emory</button>
+                            <button class="client-tab-btn" id="tab-ningbo" onclick="showClientF1Table('ningbo')"><i class="fa-solid fa-hospital-user"></i> Client 4: Ningbo First Hospital</button>
+                            <button class="client-tab-btn" id="tab-ptbxl" onclick="showClientF1Table('ptbxl')"><i class="fa-solid fa-hospital-user"></i> Client 5: PTB-XL Germany</button>
+                        </div>
+
+                        <!-- Dynamic Table Target Container -->
+                        <div id="clientF1ScorecardContainer" class="table-responsive mt-3"></div>
                     </div>
                 </div>
             </section>
@@ -305,8 +324,8 @@
             <section id="guide-section" class="app-section">
                 <div class="section-header">
                     <div>
-                        <h2>Clinical Pathologies & Precautions Knowledge Base</h2>
-                        <p>Medical encyclopedia detailing all 12 target cardiac conditions, etiology, ECG diagnostic criteria, clinical risks, and preventive precautions.</p>
+                        <h2>Clinical Pathologies, Criteria & Precautions Encyclopedia</h2>
+                        <p>Comprehensive knowledge base detailing all 12 target cardiac arrhythmias, conduction abnormalities, diagnostic criteria, and evidence-based clinical protocols.</p>
                     </div>
                 </div>
                 <div class="pathology-accordion-grid" id="pathologyGrid"></div>
@@ -316,7 +335,7 @@
             <section id="about-section" class="app-section">
                 <div class="section-header">
                     <div>
-                        <h2>About CardioSight & Project Team</h2>
+                        <h2>About CardioSight & Project Authors</h2>
                         <p>Capstone Project under the School of Computer Science and Engineering (SCOPE), VIT-AP University.</p>
                     </div>
                 </div>
