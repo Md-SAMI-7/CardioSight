@@ -1482,28 +1482,471 @@ function renderConsistencyMatrix(profileKey) {
     });
 }
 
-function initPathologyGuide() {
+
+// ========================================================
+// 9. ENHANCED CLINICAL GUIDE & ENCYCLOPEDIA ENGINE
+// ========================================================
+const CLINICAL_GUIDE_ENCYCLOPEDIA = [
+    {
+        "id": "AF",
+        "category": "arrhythmia",
+        "title": "Atrial Fibrillation (AF)",
+        "snomed": "164889003",
+        "color": "#f43f5e",
+        "severity": "Critical Risk",
+        "severityClass": "badge-danger",
+        "icon": "fa-bolt-lightning",
+        "metrics": {
+            "hr": "110-180 bpm",
+            "pr": "Absent (f-waves)",
+            "qrs": "< 120 ms (Narrow)",
+            "rhythm": "Irregularly Irregular"
+        },
+        "criteria": [
+            "Complete absence of discrete, repetitive P-waves preceding QRS complexes.",
+            "Presence of chaotic fibrillatory baseline waves (f-waves at 350-600/min).",
+            "Variable, irregularly irregular ventricular R-R intervals with no predictable pattern."
+        ],
+        "etiology": "Disorganized, rapid micro-reentrant electrical wavelets originating predominantly within muscular sleeves of the pulmonary veins, overwhelming AV node filtering capacity and causing loss of atrial systole.",
+        "risks": "5-fold increased risk of thromboembolic ischemic stroke, tachycardia-induced dilated cardiomyopathy, systemic arterial embolization, and 20-30% loss of cardiac output from missing atrial kick.",
+        "precautions": [
+            "Immediate CHA2DS2-VASc stroke assessment to guide Oral Anticoagulation (DOACs: Apixaban, Rivaroxaban, Dabigatran).",
+            "Rate control optimization: Cardioselective beta-blockers (Metoprolol/Bisoprolol) or non-DHP CCBs (Diltiazem).",
+            "Evaluate for early rhythm control strategy (Catheter Pulmonary Vein Isolation Ablation or Synchronized DC Cardioversion).",
+            "Lifestyle: Absolute cessation of binge alcohol (Holiday Heart syndrome), eliminate excessive caffeine/stimulants, treat sleep apnea."
+        ],
+        "workup": "Transthoracic & Transesophageal Echocardiography (TTE/TEE) for left atrial appendage thrombus exclusion; 24-48 hr Holter monitoring."
+    },
+    {
+        "id": "NSR",
+        "category": "normal",
+        "title": "Normal Sinus Rhythm (NSR)",
+        "snomed": "426783006",
+        "color": "#10b981",
+        "severity": "Healthy Conduction",
+        "severityClass": "badge-success",
+        "icon": "fa-heart-circle-check",
+        "metrics": {
+            "hr": "60-100 bpm",
+            "pr": "120-200 ms",
+            "qrs": "< 100 ms",
+            "rhythm": "Regular R-R"
+        },
+        "criteria": [
+            "Uniform upright P-waves in leads I, II, and aVF preceding every QRS complex (1:1 conduction).",
+            "Constant PR interval duration between 120 ms and 200 ms.",
+            "Narrow QRS complex duration < 100 ms with normal cardiac frontal axis (-30\u00b0 to +90\u00b0)."
+        ],
+        "etiology": "Physiological cardiac pacemaker conduction originating from the Sinoatrial (SA) node in the high right atrium and traversing synchronously through the AV node, His bundle, and Purkinje arborization.",
+        "risks": "None identified. Normal hemodynamics and intact physiological cardiac output.",
+        "precautions": [
+            "Maintain cardiovascular wellness with 150 mins/week of moderate-intensity aerobic exercise.",
+            "Balanced diet rich in leafy greens, dietary potassium, magnesium, and low sodium intake (< 2g/day).",
+            "Routine annual preventive blood pressure and lipid screening."
+        ],
+        "workup": "Routine annual health maintenance screening. No immediate cardiac interventions needed."
+    },
+    {
+        "id": "LBBB",
+        "category": "block",
+        "title": "Left Bundle Branch Block (LBBB)",
+        "snomed": "164909002",
+        "color": "#f59e0b",
+        "severity": "Moderate to High",
+        "severityClass": "badge-warning",
+        "icon": "fa-road-barrier",
+        "metrics": {
+            "hr": "60-100 bpm",
+            "pr": "120-200 ms",
+            "qrs": ">= 120 ms (Broad)",
+            "rhythm": "Regular R-R"
+        },
+        "criteria": [
+            "Broad QRS duration >= 120 ms in adults.",
+            "Broad, notched or slurred R-waves (M-shaped) in lateral leads (I, aVL, V5, V6) with absent septal Q-waves.",
+            "Deep, wide QS or rS complex in anterior leads V1-V2.",
+            "Secondary ST-segment and T-wave discordance opposite the main QRS deflection."
+        ],
+        "etiology": "Conduction block along the main left bundle branch fascicles causing right-to-left trans-septal myocardial depolarization, resulting in delayed and asynchronous left ventricular contraction.",
+        "risks": "Left ventricular mechanical dyssynchrony, progressive heart failure exacerbation, masking of acute myocardial infarction on ECG (requires modified Sgarbossa criteria).",
+        "precautions": [
+            "Urgent Transthoracic Echocardiogram (TTE) to quantify Left Ventricular Ejection Fraction (LVEF) and regional wall motion.",
+            "Screen for ischemic heart disease, dilated cardiomyopathy, aortic stenosis, and chronic hypertension.",
+            "Avoid rate-slowing or AV-nodal blocking polypharmacy unless closely monitored by an electrophysiologist.",
+            "Educate patient on symptoms of acute decompensated heart failure (progressive dyspnea, orthopnea, ankle edema)."
+        ],
+        "workup": "Cardiology consult; evaluate for Cardiac Resynchronization Therapy (CRT-D/CRT-P) if LVEF <= 35% with persistent NYHA Class II-IV symptoms."
+    },
+    {
+        "id": "RBBB",
+        "category": "block",
+        "title": "Right Bundle Branch Block (RBBB)",
+        "snomed": "59118001",
+        "color": "#8b5cf6",
+        "severity": "Moderate Risk",
+        "severityClass": "badge-info",
+        "icon": "fa-shuffle",
+        "metrics": {
+            "hr": "60-100 bpm",
+            "pr": "120-200 ms",
+            "qrs": ">= 120 ms",
+            "rhythm": "Regular R-R"
+        },
+        "criteria": [
+            "QRS duration >= 120 ms.",
+            "Distinctive rsR', rSR', or wide notched R-wave ('bunny ears') in lead V1 and V2.",
+            "Wide, slurred S-wave in lateral leads (I, aVL, V5, V6).",
+            "Secondary T-wave inversion in right precordial leads V1-V3."
+        ],
+        "etiology": "Interruption of electrical transmission through the right bundle branch resulting in delayed right ventricular activation via slow trans-septal myocardial spread from the left ventricle.",
+        "risks": "Right ventricular strain/pressure overload (pulmonary embolism, cor pulmonale, ASD), potential progression to trifascicular block if accompanied by hemiblocks.",
+        "precautions": [
+            "Evaluate right heart hemodynamics and pulmonary arterial pressure via echocardiography.",
+            "Rule out acute pulmonary embolism if new-onset RBBB presents with chest pain or hypoxemia.",
+            "Assess for symptoms of pulmonary hypertension or congenital structural cardiac defects."
+        ],
+        "workup": "Echocardiogram and baseline pulmonary evaluation. Periodic 12-lead ECG monitoring."
+    },
+    {
+        "id": "IAVB",
+        "category": "block",
+        "title": "1st Degree AV Block (IAVB)",
+        "snomed": "270492004",
+        "color": "#06b6d4",
+        "severity": "Mild to Moderate",
+        "severityClass": "badge-info",
+        "icon": "fa-clock",
+        "metrics": {
+            "hr": "50-90 bpm",
+            "pr": "> 200 ms (Fixed)",
+            "qrs": "< 120 ms",
+            "rhythm": "Regular R-R"
+        },
+        "criteria": [
+            "Prolonged PR interval consistently exceeding 200 ms (> 5 small boxes) in adults.",
+            "Every single P-wave is followed by a QRS complex (1:1 AV conduction with zero dropped beats).",
+            "Constant PR interval length from beat to beat."
+        ],
+        "etiology": "Fixed conduction delay through the Atrioventricular (AV) node or His-Purkinje system without complete conduction failure.",
+        "risks": "Potential progression to higher-degree AV block (Mobitz I/II or complete heart block), especially in elderly patients or those on nodal-depressant pharmacotherapy.",
+        "precautions": [
+            "Review medication list for AV-nodal depressant agents (Beta-blockers, Diltiazem, Verapamil, Digoxin, Amiodarone).",
+            "Check serum electrolyte panels (potassium, magnesium, calcium).",
+            "Advise patient to seek emergency care for syncopal episodes, unprovoked dizziness, or extreme fatigue."
+        ],
+        "workup": "Non-urgent outpatient cardiology follow-up. Repeat 12-lead ECG every 6-12 months."
+    },
+    {
+        "id": "ST",
+        "category": "arrhythmia",
+        "title": "Sinus Tachycardia (STach)",
+        "snomed": "427084000",
+        "color": "#ec4899",
+        "severity": "Moderate (Secondary)",
+        "severityClass": "badge-warning",
+        "icon": "fa-gauge-high",
+        "metrics": {
+            "hr": "> 100 bpm",
+            "pr": "100-180 ms",
+            "qrs": "< 100 ms",
+            "rhythm": "Regular Fast R-R"
+        },
+        "criteria": [
+            "Heart rate exceeding 100 bpm originating from the sinoatrial node.",
+            "Upright, normal P-wave morphology in leads I, II, and aVF preceding every QRS complex.",
+            "Gradual acceleration and deceleration (in contrast to paroxysmal supraventricular tachycardias)."
+        ],
+        "etiology": "Physiological or compensatory increase in sinus nodal automaticity driven by sympathetic stimulation, catecholamine surge, fever, hypovolemia, anemia, hyperthyroidism, or pain.",
+        "risks": "Elevated myocardial oxygen consumption, abbreviated diastolic filling time, potential precipitation of myocardial ischemia in patients with underlying CAD.",
+        "precautions": [
+            "Identify and treat underlying extrinsic causes (dehydration, fever/sepsis, anemia, hyperthyroidism, pain, anxiety).",
+            "Adequate oral or intravenous rehydration with electrolyte restoration.",
+            "Eliminate stimulants: caffeine, nicotine, sympathomimetic decongestants, and energy beverages."
+        ],
+        "workup": "Complete blood count (CBC), thyroid function panel (TSH, Free T4), serum electrolytes, and sepsis screen if febrile."
+    },
+    {
+        "id": "SB",
+        "category": "arrhythmia",
+        "title": "Sinus Bradycardia (SB)",
+        "snomed": "426177001",
+        "color": "#6366f1",
+        "severity": "Mild to Moderate",
+        "severityClass": "badge-info",
+        "icon": "fa-gauge-min",
+        "metrics": {
+            "hr": "< 60 bpm",
+            "pr": "120-200 ms",
+            "qrs": "< 100 ms",
+            "rhythm": "Regular Slow R-R"
+        },
+        "criteria": [
+            "Resting sinus rhythm with heart rate < 60 bpm.",
+            "Normal upright P-waves in leads I, II, and aVF preceding every QRS complex.",
+            "Constant PR interval between 120 ms and 200 ms."
+        ],
+        "etiology": "Heightened parasympathetic (vagal) tone, athlete heart physiological conditioning, sick sinus syndrome (sinus node dysfunction), hypothermia, or medication effects.",
+        "risks": "Hemodynamic compromise (hypotension, syncope, chronotropic incompetence), increased vulnerability to escape ventricular ectopic arrhythmias.",
+        "precautions": [
+            "Distinguish between physiological bradycardia (well-trained endurance athletes) and symptomatic pathological bradycardia.",
+            "Evaluate for excessive beta-blocker, calcium channel blocker, or antiarrhythmic drug dosage.",
+            "Instruct patient to monitor for exertional lightheadedness, near-syncope, or severe fatigue."
+        ],
+        "workup": "Thyroid panel (TSH for hypothyroidism); 24-hr Holter monitoring; evaluate for permanent pacemaker if symptomatic and refractory."
+    },
+    {
+        "id": "PAC",
+        "category": "arrhythmia",
+        "title": "Premature Atrial Contraction (PAC)",
+        "snomed": "284470004",
+        "color": "#eab308",
+        "severity": "Mild Risk",
+        "severityClass": "badge-secondary",
+        "icon": "fa-wave-square",
+        "metrics": {
+            "hr": "Variable",
+            "pr": "Variable / Ectopic",
+            "qrs": "< 100 ms",
+            "rhythm": "Premature Beat"
+        },
+        "criteria": [
+            "Abnormal premature P-wave with morphology differing from sinus P-waves.",
+            "Followed by a narrow QRS complex and typically an incomplete compensatory pause.",
+            "May occasionally conduct with aberrancy (wide QRS) or block (non-conducted PAC)."
+        ],
+        "etiology": "Ectopic atrial pacemaker site firing prematurely before the next scheduled sinoatrial node discharge.",
+        "risks": "Frequent PACs (> 100/day) may trigger sustained paroxysmal Atrial Fibrillation or Atrial Flutter in susceptible patients.",
+        "precautions": [
+            "Reduce or eliminate dietary triggers: excess caffeine, energy drinks, nicotine, and alcohol.",
+            "Optimize sleep hygiene and mitigate chronic psychological stress.",
+            "Correct hypomagnesemia or hypokalemia."
+        ],
+        "workup": "24-hr Holter monitor if highly symptomatic with palpitations; assess overall PAC burden."
+    },
+    {
+        "id": "PVC",
+        "category": "arrhythmia",
+        "title": "Premature Ventricular Contraction (PVC)",
+        "snomed": "427172004",
+        "color": "#ef4444",
+        "severity": "Moderate Risk",
+        "severityClass": "badge-warning",
+        "icon": "fa-heart-crack",
+        "metrics": {
+            "hr": "Variable",
+            "pr": "Absent",
+            "qrs": ">= 120 ms (Wide & Bizarre)",
+            "rhythm": "Full Compensatory Pause"
+        },
+        "criteria": [
+            "Premature, wide and bizarre QRS complex (duration >= 120 ms).",
+            "No preceding P-wave associated with the ectopic complex.",
+            "T-wave opposite in polarity to the major deflection of the QRS.",
+            "Followed by a full compensatory pause."
+        ],
+        "etiology": "Ectopic electrical focus arising directly within the ventricular myocardium or Purkinje arborization.",
+        "risks": "High PVC burden (> 10-15% of total daily beats) can induce PVC-mediated cardiomyopathy; R-on-T phenomenon can trigger Ventricular Tachycardia (VT) or Ventricular Fibrillation (VF).",
+        "precautions": [
+            "Check serum potassium (> 4.0 mEq/L) and magnesium (> 2.0 mg/dL) levels.",
+            "Echocardiogram to rule out underlying structural heart disease or reduced LVEF.",
+            "Avoid sympathomimetic stimulants and recreational drugs."
+        ],
+        "workup": "24-hr Holter monitor to quantify PVC burden; consider catheter ablation or beta-blocker therapy if burden > 10% or symptomatic."
+    },
+    {
+        "id": "TAb",
+        "category": "morphology",
+        "title": "T-Wave Abnormality (TAb)",
+        "snomed": "164934002",
+        "color": "#14b8a6",
+        "severity": "Diagnostic Marker",
+        "severityClass": "badge-secondary",
+        "icon": "fa-chart-area",
+        "metrics": {
+            "hr": "Variable",
+            "pr": "Normal",
+            "qrs": "Variable",
+            "rhythm": "T-Wave Inversion / Flattening"
+        },
+        "criteria": [
+            "T-wave inversion >= 1 mm in two or more contiguous anatomical leads (excluding aVR and V1).",
+            "Symmetrically inverted T-waves (coronary T-waves) or biphasic T-wave configurations.",
+            "T-wave flattening or hyperacute peaked symmetric T-waves."
+        ],
+        "etiology": "Abnormal ventricular repolarization secondary to myocardial ischemia, left ventricular hypertrophy (LVH strain), electrolyte imbalances (hypo/hyperkalemia), or CNS events.",
+        "risks": "Marker of acute or chronic coronary ischemia, Wellens syndrome (critical proximal LAD stenosis), or severe electrolyte derangement.",
+        "precautions": [
+            "Serial cardiac biomarker testing (High-Sensitivity Troponin I/T) to rule out Non-ST Elevation Myocardial Infarction (NSTEMI).",
+            "Urgent evaluation for Wellens syndrome criteria if deep symmetric anterior T-wave inversions are present.",
+            "Check comprehensive metabolic panel for serum potassium levels."
+        ],
+        "workup": "Serial 12-lead ECGs, Troponin panel, Echocardiogram, and urgent Coronary Angiography if ischemic symptoms persist."
+    },
+    {
+        "id": "LAD",
+        "category": "morphology",
+        "title": "Left Axis Deviation (LAD)",
+        "snomed": "164873001",
+        "color": "#a855f7",
+        "severity": "Diagnostic Marker",
+        "severityClass": "badge-secondary",
+        "icon": "fa-compass",
+        "metrics": {
+            "hr": "Normal",
+            "pr": "Normal",
+            "qrs": "Axis -30\u00b0 to -90\u00b0",
+            "rhythm": "Frontal Axis Shift"
+        },
+        "criteria": [
+            "Mean QRS axis between -30\u00b0 and -90\u00b0 in the frontal plane.",
+            "Positive QRS (tall R-wave) in lead I and negative QRS (deep S-wave) in lead aVF and lead II."
+        ],
+        "etiology": "Left anterior fascicular block (LAFB), left ventricular hypertrophy, inferior wall myocardial infarction, or mechanical deviation due to elevated diaphragm.",
+        "risks": "Underlying conduction system disease; progression to bifascicular or trifascicular block when combined with RBBB.",
+        "precautions": [
+            "Investigate for underlying hypertension, aortic valve disease, or prior inferior MI.",
+            "Assess for accompanying bundle branch or fascicular conduction delays."
+        ],
+        "workup": "Transthoracic Echocardiogram to evaluate left ventricular wall thickness and mass index."
+    },
+    {
+        "id": "LAFB",
+        "category": "block",
+        "title": "Left Anterior Fascicular Block (LAFB)",
+        "snomed": "39732003",
+        "color": "#3b82f6",
+        "severity": "Conduction Defect",
+        "severityClass": "badge-info",
+        "icon": "fa-diagram-project",
+        "metrics": {
+            "hr": "Normal",
+            "pr": "Normal",
+            "qrs": "< 120 ms (Axis <= -45\u00b0)",
+            "rhythm": "qR in I, aVL / rS in II, III, aVF"
+        },
+        "criteria": [
+            "Marked left axis deviation with QRS axis <= -45\u00b0 to -90\u00b0.",
+            "Small q-wave with tall R-wave (qR pattern) in leads I and aVL.",
+            "Small r-wave with deep S-wave (rS pattern) in leads II, III, and aVF.",
+            "QRS duration < 120 ms with delayed intrinsicoid deflection in aVL (> 45 ms)."
+        ],
+        "etiology": "Selective conduction interruption in the slender, vulnerable anterior fascicle of the left bundle branch, causing left ventricle activation to proceed from posterior to anterior.",
+        "risks": "Bifascicular block when combined with RBBB (high risk of progressing to complete AV heart block).",
+        "precautions": [
+            "Screen for coronary artery disease (LAD artery provides dominant blood supply to anterior fascicle).",
+            "Annual ECG surveillance for development of RBBB or PR prolongation."
+        ],
+        "workup": "Cardiology assessment, echocardiogram, and periodic ambulatory ECG tracking."
+    }
+];
+
+function initPathologyGuide(filterCategory = 'all', searchQuery = '') {
     const guideContainer = document.getElementById('pathologyGrid');
     if (!guideContainer) return;
 
-    guideContainer.innerHTML = Object.entries(CLINICAL_PROFILES).map(([key, item]) => `
-        <div class="guide-card" style="border-top: 3px solid ${item.color};">
-            <div class="guide-card-header">
-                <h4>${item.title}</h4>
-                <span class="badge" style="background:${item.color}22; color:${item.color}; border: 1px solid ${item.color}44;">${item.severity}</span>
+    let items = CLINICAL_GUIDE_ENCYCLOPEDIA;
+
+    // Filter by Category
+    if (filterCategory !== 'all') {
+        items = items.filter(item => item.category === filterCategory);
+    }
+
+    // Filter by Search
+    if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase().trim();
+        items = items.filter(item => 
+            item.title.toLowerCase().includes(q) || 
+            item.snomed.includes(q) || 
+            item.etiology.toLowerCase().includes(q) || 
+            item.risks.toLowerCase().includes(q) ||
+            item.precautions.some(p => p.toLowerCase().includes(q))
+        );
+    }
+
+    if (items.length === 0) {
+        guideContainer.innerHTML = `
+            <div class="guide-empty-state">
+                <i class="fa-solid fa-file-circle-question"></i>
+                <h4>No Matching Pathologies Found</h4>
+                <p>Try searching for a different condition name, SNOMED-CT code, or clear your filter.</p>
             </div>
-            <p class="guide-desc">${item.etiology}</p>
-            <div class="guide-block">
-                <strong><i class="fa-solid fa-triangle-exclamation"></i> Identified Risks:</strong> ${item.risks}
+        `;
+        return;
+    }
+
+    guideContainer.innerHTML = items.map(item => `
+        <div class="guide-card-modern" style="border-top: 4px solid ${item.color};" id="guide-${item.id}">
+            <div class="guide-card-header-modern">
+                <div class="guide-title-row">
+                    <div class="guide-icon-glow" style="background:${item.color}22; color:${item.color}; border: 1px solid ${item.color}55;">
+                        <i class="fa-solid ${item.icon}"></i>
+                    </div>
+                    <div>
+                        <h4>${item.title}</h4>
+                        <span class="guide-snomed-tag">SNOMED-CT: <strong>${item.snomed}</strong></span>
+                    </div>
+                </div>
+                <span class="badge ${item.severityClass}">${item.severity}</span>
             </div>
-            <div class="guide-block">
-                <strong><i class="fa-solid fa-shield-heart"></i> Precautions & Protocol:</strong>
-                <ul class="guide-bullets">
-                    ${item.precautions.slice(0, 2).map(p => `<li>${p}</li>`).join('')}
+
+            <!-- Fiducial Metrics Strip -->
+            <div class="guide-metrics-strip">
+                <div class="g-metric-item"><span>Heart Rate</span><strong>${item.metrics.hr}</strong></div>
+                <div class="g-metric-item"><span>PR Interval</span><strong>${item.metrics.pr}</strong></div>
+                <div class="g-metric-item"><span>QRS Width</span><strong>${item.metrics.qrs}</strong></div>
+                <div class="g-metric-item"><span>Rhythm</span><strong>${item.metrics.rhythm}</strong></div>
+            </div>
+
+            <!-- ECG Diagnostic Criteria -->
+            <div class="guide-section-box criteria-box">
+                <h5><i class="fa-solid fa-list-check" style="color:${item.color}"></i> Core 12-Lead Diagnostic Criteria</h5>
+                <ul class="guide-bullet-list">
+                    ${item.criteria.map(c => `<li><i class="fa-solid fa-chevron-right" style="color:${item.color}"></i> <span>${c}</span></li>`).join('')}
                 </ul>
+            </div>
+
+            <!-- Pathophysiology Mechanism -->
+            <div class="guide-section-box">
+                <h5><i class="fa-solid fa-dna" style="color:#38bdf8"></i> Pathophysiology & Conduction Mechanism</h5>
+                <p class="guide-text">${item.etiology}</p>
+            </div>
+
+            <!-- Identified Complications -->
+            <div class="guide-section-box risk-box" style="border-left: 3px solid #f43f5e; background: rgba(244, 63, 94, 0.05);">
+                <h5 style="color:#f43f5e"><i class="fa-solid fa-triangle-exclamation"></i> Clinical Risks & Hemodynamic Impact</h5>
+                <p class="guide-text">${item.risks}</p>
+            </div>
+
+            <!-- Actionable Precautions -->
+            <div class="guide-section-box precautions-box" style="border-left: 3px solid #10b981; background: rgba(16, 185, 129, 0.05);">
+                <h5 style="color:#10b981"><i class="fa-solid fa-shield-heart"></i> Actionable Precautions & Management Protocol</h5>
+                <ul class="guide-bullet-list">
+                    ${item.precautions.map(p => `<li><i class="fa-solid fa-circle-check" style="color:#10b981"></i> <span>${p}</span></li>`).join('')}
+                </ul>
+            </div>
+
+            <!-- Diagnostic Workup -->
+            <div class="guide-footer-workup">
+                <i class="fa-solid fa-stethoscope" style="color:${item.color}"></i>
+                <div><strong>Recommended Medical Workup:</strong> <span>${item.workup}</span></div>
             </div>
         </div>
     `).join('');
+}
+
+function filterGuideCategory(catKey) {
+    document.querySelectorAll('.guide-filter-btn').forEach(btn => btn.classList.remove('active'));
+    const btn = document.getElementById(`gfilter-${catKey}`);
+    if (btn) btn.classList.add('active');
+    
+    const searchVal = document.getElementById('guideSearchInput')?.value || '';
+    initPathologyGuide(catKey, searchVal);
+}
+
+function onGuideSearch(e) {
+    const activeBtn = document.querySelector('.guide-filter-btn.active');
+    const cat = activeBtn ? activeBtn.id.replace('gfilter-', '') : 'all';
+    initPathologyGuide(cat, e.target.value);
 }
 
 function setText(id, txt) {

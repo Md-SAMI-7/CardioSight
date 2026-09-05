@@ -324,11 +324,28 @@
             <section id="guide-section" class="app-section">
                 <div class="section-header">
                     <div>
-                        <h2>Clinical Pathologies, Criteria & Precautions Encyclopedia</h2>
-                        <p>Comprehensive knowledge base detailing all 12 target cardiac arrhythmias, conduction abnormalities, diagnostic criteria, and evidence-based clinical protocols.</p>
+                        <h2>Clinical Pathologies, Diagnostic Criteria & Precautions Encyclopedia</h2>
+                        <p>Comprehensive interactive encyclopedia detailing all 12 target cardiac arrhythmias, conduction blocks, and repolarization abnormalities with 12-lead diagnostic criteria, pathophysiology, and clinical management protocols.</p>
                     </div>
                 </div>
-                <div class="pathology-accordion-grid" id="pathologyGrid"></div>
+
+                <!-- Interactive Search & Category Filter Toolbar -->
+                <div class="guide-toolbar-container">
+                    <div class="guide-search-wrapper">
+                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                        <input type="text" id="guideSearchInput" class="guide-search-input" placeholder="Search pathology name, SNOMED-CT code, symptoms, criteria, or medications..." oninput="onGuideSearch(event)">
+                    </div>
+                    <div class="guide-filter-pills">
+                        <button class="guide-filter-btn active" id="gfilter-all" onclick="filterGuideCategory('all')"><i class="fa-solid fa-layer-group"></i> All 12 Conditions</button>
+                        <button class="guide-filter-btn" id="gfilter-arrhythmia" onclick="filterGuideCategory('arrhythmia')"><i class="fa-solid fa-bolt-lightning"></i> Arrhythmias</button>
+                        <button class="guide-filter-btn" id="gfilter-block" onclick="filterGuideCategory('block')"><i class="fa-solid fa-road-barrier"></i> Conduction Blocks</button>
+                        <button class="guide-filter-btn" id="gfilter-morphology" onclick="filterGuideCategory('morphology')"><i class="fa-solid fa-wave-square"></i> Morphology & Axis</button>
+                        <button class="guide-filter-btn" id="gfilter-normal" onclick="filterGuideCategory('normal')"><i class="fa-solid fa-heart-circle-check"></i> Normal Conduction</button>
+                    </div>
+                </div>
+
+                <!-- Spacious Modern Pathology Grid -->
+                <div class="pathology-cards-grid-spacious" id="pathologyGrid"></div>
             </section>
 
             <!-- SECTION 5: TEAM & ABOUT -->

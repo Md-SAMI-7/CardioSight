@@ -497,3 +497,271 @@ body {
     .main-content { padding: 16px; padding-bottom: 80px; }
     .app-header { padding: 0 16px; }
 }
+
+
+/* ===================================================
+   ENHANCED SPATIAL CLINICAL GUIDE & ENCYCLOPEDIA
+   =================================================== */
+.guide-toolbar-container {
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 18px 24px;
+    margin-bottom: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.guide-search-wrapper {
+    position: relative;
+    width: 100%;
+}
+.guide-search-wrapper .search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--primary);
+    font-size: 15px;
+}
+.guide-search-input {
+    width: 100%;
+    background: #020617;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    padding: 12px 16px 12px 46px;
+    border-radius: var(--radius-md);
+    color: #ffffff;
+    font-size: 13px;
+    font-family: var(--font-sans);
+    outline: none;
+    transition: all 0.25s ease;
+}
+.guide-search-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow), 0 0 20px rgba(56, 189, 248, 0.2);
+}
+
+.guide-filter-pills {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.guide-filter-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 24px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.guide-filter-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+.guide-filter-btn.active {
+    background: var(--primary-glow);
+    border-color: var(--primary);
+    color: var(--primary);
+    box-shadow: 0 0 14px var(--primary-glow);
+    font-weight: 700;
+}
+
+/* Spacious Card Grid */
+.pathology-cards-grid-spacious {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
+    gap: 32px;
+    margin-bottom: 40px;
+}
+@media (max-width: 600px) {
+    .pathology-cards-grid-spacious {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
+.guide-card-modern {
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+}
+.guide-card-modern:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 25px rgba(56, 189, 248, 0.15);
+}
+
+.guide-card-header-modern {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.guide-title-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+.guide-icon-glow {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+.guide-title-row h4 {
+    font-size: 16px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.3px;
+}
+.guide-snomed-tag {
+    display: block;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+    font-family: var(--font-mono);
+}
+.guide-snomed-tag strong {
+    color: var(--primary);
+}
+
+/* Fiducial Metrics Strip */
+.guide-metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    background: rgba(2, 6, 23, 0.7);
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.g-metric-item {
+    display: flex;
+    flex-direction: column;
+}
+.g-metric-item span {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+}
+.g-metric-item strong {
+    font-size: 11px;
+    font-weight: 700;
+    color: #ffffff;
+    font-family: var(--font-mono);
+    margin-top: 2px;
+}
+
+/* Section Boxes Inside Card */
+.guide-section-box {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.guide-section-box h5 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.guide-text {
+    font-size: 12px;
+    color: #cbd5e1;
+    line-height: 1.55;
+}
+
+.guide-bullet-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.guide-bullet-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    color: #e2e8f0;
+    line-height: 1.45;
+}
+.guide-bullet-list li i {
+    margin-top: 3px;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.guide-footer-workup {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    line-height: 1.45;
+}
+.guide-footer-workup strong {
+    color: #ffffff;
+}
+
+.guide-empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-lg);
+}
+.guide-empty-state i {
+    font-size: 48px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+}
+.guide-empty-state h4 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+}
+.guide-empty-state p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
