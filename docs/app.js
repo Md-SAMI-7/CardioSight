@@ -1045,14 +1045,34 @@ function toggleGradCam() {
     const state = document.getElementById('gradCamState');
     if (state) state.innerText = showGradCam ? "ON" : "OFF";
     if (btn) {
-        if (showGradCam) btn.classList.add('active');
-        else btn.classList.remove('active');
+        if (showGradCam) {
+            btn.classList.add('active');
+            showToast("Grad-CAM Enabled", "1D-ResNet34 Grad-CAM saliency highlights are active.");
+        } else {
+            btn.classList.remove('active');
+            showToast("Grad-CAM Disabled", "Grad-CAM saliency overlay turned OFF (Raw Signal).");
+        }
     }
+    drawECGFrame();
 }
 
 function resetCanvasZoom() {
     ecgPhase = 0;
-    showToast("Canvas Reset", "Oscilloscope synchronization reset.");
+    selectedLead = "Lead II";
+    showGradCam = true;
+    
+    document.querySelectorAll('#leadPills .pill-btn').forEach(btn => {
+        if (btn.innerText.includes('Lead II')) btn.classList.add('active');
+        else btn.classList.remove('active');
+    });
+
+    const btn = document.getElementById('toggleHeatmapBtn');
+    const state = document.getElementById('gradCamState');
+    if (state) state.innerText = "ON";
+    if (btn) btn.classList.add('active');
+
+    drawECGFrame();
+    showToast("Oscilloscope Reset", "Reset to Lead II standard calibration (25mm/s, 10mm/mV, Grad-CAM ON).");
 }
 
 function startOscilloscope() {
