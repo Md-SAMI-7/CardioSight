@@ -23,261 +23,1002 @@ const SNOMED_MAP = {
 
 const CLINICAL_PROFILES = {
     "AF": {
-        title: "Atrial Fibrillation (AF)",
-        abbr: "AF",
-        color: "#f43f5e",
-        severity: "Critical Risk (Embolic & Stroke Vulnerability)",
-        hr: "142 bpm",
-        pr: "Absent (Chaotic f-waves)",
-        qrs: "88 ms",
-        qt: "360 ms",
-        rr: "Irregularly Irregular (380-690 ms)",
-        probabilities: [
-            { name: "Atrial Fibrillation (AF)", prob: 98.4, color: "#f43f5e" },
-            { name: "T-Wave Abnormality (TAb)", prob: 64.2, color: "#14b8a6" },
-            { name: "Right Bundle Branch Block (RBBB)", prob: 31.5, color: "#8b5cf6" },
-            { name: "Premature Ventricular Contraction (PVC)", prob: 14.1, color: "#ef4444" },
-            { name: "Normal Sinus Rhythm (NSR)", prob: 1.2, color: "#10b981" }
+        "title": "Atrial Fibrillation (AF)",
+        "abbr": "AF",
+        "snomed": "164889003",
+        "color": "#f43f5e",
+        "severity": "Critical Risk (Embolic & Stroke Vulnerability)",
+        "hr": "142 bpm",
+        "pr": "Absent (Chaotic f-waves)",
+        "qrs": "88 ms (Narrow)",
+        "qt": "360 ms",
+        "rr": "Irregularly Irregular (380-690 ms)",
+        "probabilities": [
+            {
+                "name": "Atrial Fibrillation (AF)",
+                "prob": 98.4,
+                "color": "#f43f5e"
+            },
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 64.2,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "Right Bundle Branch Block (RBBB)",
+                "prob": 31.5,
+                "color": "#8b5cf6"
+            },
+            {
+                "name": "Premature Ventricular Contraction (PVC)",
+                "prob": 14.1,
+                "color": "#ef4444"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 1.2,
+                "color": "#10b981"
+            }
         ],
-        tags: ["Chaotic Baseline f-Waves", "Absent P-Waves", "Irregular R-R Cadence", "Elevated Thromboembolic Risk"],
-        entropy: 0.148,
-        mi: 0.032,
-        variance: 0.0041,
-        etiology: "Rapid, disorganized electrical atrial activation (350-600 depolarizations/min) originating predominantly within pulmonary vein sleeves, producing variable AV conduction and loss of coordinated atrial systole.",
-        risks: "5-fold elevated ischemic stroke risk, systemic thromboembolism, tachycardia-induced cardiomyopathy, hemodynamic decline from loss of 20-30% atrial ventricular filling kick.",
-        precautions: [
+        "tags": [
+            "Chaotic Baseline f-Waves",
+            "Absent P-Waves",
+            "Irregular R-R Cadence",
+            "Elevated Thromboembolic Risk"
+        ],
+        "entropy": 0.148,
+        "mi": 0.032,
+        "variance": 0.0041,
+        "etiology": "Rapid, disorganized electrical atrial activation (350-600 depolarizations/min) originating predominantly within muscular sleeves of the pulmonary veins, producing variable AV conduction and loss of coordinated atrial systole.",
+        "risks": "5-fold elevated ischemic stroke risk, systemic thromboembolism, tachycardia-induced cardiomyopathy, hemodynamic decline from loss of 20-30% atrial ventricular filling kick.",
+        "precautions": [
             "Immediate CHA2DS2-VASc stroke assessment to guide Oral Anticoagulation (DOACs: Apixaban, Rivaroxaban, Dabigatran).",
-            "Rate control with cardioselective beta-blockers (Metoprolol/Bisoprolol) or nondihydropyridine CCBs (Diltiazem).",
+            "Rate control with cardioselective beta-blockers (Metoprolol/Bisoprolol) or non-DHP CCBs (Diltiazem).",
             "Urgent Transthoracic / Transesophageal Echocardiography (TTE/TEE) to evaluate left atrial size and exclude LAA thrombus.",
             "Lifestyle: Absolute alcohol cessation (Holiday Heart syndrome trigger), eliminate excessive stimulants, address obstructive sleep apnea."
         ],
-        guidance: "Refer to Cardiology/Electrophysiology within 24-48 hours. Consider cardioversion or catheter ablation if symptomatic or hemodynamically compromised.",
-        shapFeatures: ["R-R Interval Variance", "Absence of Discrete P-Waves", "Ventricular Rate > 120", "Chaotic Baseline Noise", "QRS Peak Jitter", "PR Segment Discontinuity", "T-Wave Inversion"],
-        shapValues: [0.94, 0.91, 0.68, 0.52, 0.31, 0.24, 0.11]
+        "guidance": "Refer to Cardiology/Electrophysiology within 24-48 hours. Consider cardioversion or catheter ablation if symptomatic or hemodynamically compromised.",
+        "shapFeatures": [
+            "R-R Interval Variance",
+            "Absence of Discrete P-Waves",
+            "Ventricular Rate > 120",
+            "Chaotic Baseline Noise",
+            "QRS Peak Jitter",
+            "PR Segment Discontinuity",
+            "T-Wave Inversion"
+        ],
+        "shapValues": [
+            0.94,
+            0.91,
+            0.68,
+            0.52,
+            0.31,
+            0.24,
+            0.11
+        ]
     },
     "NSR": {
-        title: "Normal Sinus Rhythm (NSR)",
-        abbr: "NSR",
-        color: "#10b981",
-        severity: "Normal / Physiological Conduction",
-        hr: "72 bpm",
-        pr: "158 ms",
-        qrs: "84 ms",
-        qt: "392 ms",
-        rr: "Regular (830 ms)",
-        probabilities: [
-            { name: "Normal Sinus Rhythm (NSR)", prob: 99.2, color: "#10b981" },
-            { name: "Sinus Bradycardia (SB)", prob: 2.1, color: "#6366f1" },
-            { name: "1st Degree AV Block (IAVB)", prob: 1.4, color: "#06b6d4" },
-            { name: "Premature Atrial Contraction (PAC)", prob: 0.8, color: "#eab308" },
-            { name: "Atrial Fibrillation (AF)", prob: 0.2, color: "#f43f5e" }
+        "title": "Normal Sinus Rhythm (NSR)",
+        "abbr": "NSR",
+        "snomed": "426783006",
+        "color": "#10b981",
+        "severity": "Normal / Physiological Conduction",
+        "hr": "72 bpm",
+        "pr": "158 ms",
+        "qrs": "84 ms",
+        "qt": "392 ms",
+        "rr": "Regular (830 ms)",
+        "probabilities": [
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 99.2,
+                "color": "#10b981"
+            },
+            {
+                "name": "Sinus Bradycardia (SB)",
+                "prob": 2.1,
+                "color": "#6366f1"
+            },
+            {
+                "name": "1st Degree AV Block (IAVB)",
+                "prob": 1.4,
+                "color": "#06b6d4"
+            },
+            {
+                "name": "Premature Atrial Contraction (PAC)",
+                "prob": 0.8,
+                "color": "#eab308"
+            },
+            {
+                "name": "Atrial Fibrillation (AF)",
+                "prob": 0.2,
+                "color": "#f43f5e"
+            }
         ],
-        tags: ["Upright P-Waves in Lead II", "1:1 AV Conduction", "Uniform R-R Spacing", "Preserved QRS Axis"],
-        entropy: 0.021,
-        mi: 0.007,
-        variance: 0.0008,
-        etiology: "Physiological cardiac conduction originating rhythmically from the Sinoatrial (SA) node and conducting smoothly through AV node, bundle of His, and Purkinje fibers.",
-        risks: "None identified. Hemodynamically stable and normal ventricular activation.",
-        precautions: [
+        "tags": [
+            "Upright P-Waves in Lead II",
+            "1:1 AV Conduction",
+            "Uniform R-R Spacing",
+            "Preserved QRS Axis"
+        ],
+        "entropy": 0.021,
+        "mi": 0.007,
+        "variance": 0.0008,
+        "etiology": "Physiological cardiac conduction originating rhythmically from the Sinoatrial (SA) node in the high right atrium and conducting smoothly through the AV node, His bundle, and Purkinje fibers.",
+        "risks": "None identified. Hemodynamically stable and normal ventricular activation.",
+        "precautions": [
             "Maintain cardiovascular wellness with 150 minutes of moderate aerobic exercise weekly.",
-            "Nutritious balanced diet rich in potassium, magnesium, and dietary fiber.",
+            "Nutritious balanced diet rich in potassium, magnesium, and dietary fiber; low sodium (< 2g/day).",
             "Routine annual preventive blood pressure and lipid monitoring."
         ],
-        guidance: "Routine health maintenance. No immediate cardiac therapeutic intervention indicated.",
-        shapFeatures: ["Upright P-Wave Morphology", "Normal PR Duration (158ms)", "Narrow QRS Complex (<100ms)", "Regular R-R Intervals", "Physiological Heart Rate", "Concordant T-Waves", "Isoelectric ST Segment"],
-        shapValues: [0.96, 0.88, 0.82, 0.79, 0.65, 0.42, 0.35]
+        "guidance": "Routine health maintenance. No immediate cardiac therapeutic intervention indicated.",
+        "shapFeatures": [
+            "Upright P-Wave Morphology",
+            "Normal PR Duration (158ms)",
+            "Narrow QRS Complex (<100ms)",
+            "Regular R-R Intervals",
+            "Physiological Heart Rate",
+            "Concordant T-Waves",
+            "Isoelectric ST Segment"
+        ],
+        "shapValues": [
+            0.96,
+            0.88,
+            0.82,
+            0.79,
+            0.65,
+            0.42,
+            0.35
+        ]
     },
     "LBBB": {
-        title: "Left Bundle Branch Block (LBBB)",
-        abbr: "LBBB",
-        color: "#f59e0b",
-        severity: "Moderate to High (Structural Heart Disease Marker)",
-        hr: "76 bpm",
-        pr: "168 ms",
-        qrs: "146 ms",
-        qt: "442 ms",
-        rr: "Regular (790 ms)",
-        probabilities: [
-            { name: "Left Bundle Branch Block (LBBB)", prob: 97.1, color: "#f59e0b" },
-            { name: "Left Axis Deviation (LAD)", prob: 71.4, color: "#a855f7" },
-            { name: "T-Wave Abnormality (TAb)", prob: 54.2, color: "#14b8a6" },
-            { name: "1st Degree AV Block (IAVB)", prob: 18.0, color: "#06b6d4" },
-            { name: "Normal Sinus Rhythm (NSR)", prob: 0.4, color: "#10b981" }
+        "title": "Left Bundle Branch Block (LBBB)",
+        "abbr": "LBBB",
+        "snomed": "164909002",
+        "color": "#f59e0b",
+        "severity": "Moderate to High (Structural Marker)",
+        "hr": "76 bpm",
+        "pr": "168 ms",
+        "qrs": "146 ms (Broad)",
+        "qt": "442 ms",
+        "rr": "Regular (790 ms)",
+        "probabilities": [
+            {
+                "name": "Left Bundle Branch Block (LBBB)",
+                "prob": 97.1,
+                "color": "#f59e0b"
+            },
+            {
+                "name": "Left Axis Deviation (LAD)",
+                "prob": 71.4,
+                "color": "#a855f7"
+            },
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 54.2,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "1st Degree AV Block (IAVB)",
+                "prob": 18.0,
+                "color": "#06b6d4"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 0.4,
+                "color": "#10b981"
+            }
         ],
-        tags: ["Broad QRS >= 120ms", "Notched R in I, aVL, V5-V6", "Deep S in V1-V2", "Secondary ST-T Inversion"],
-        entropy: 0.162,
-        mi: 0.041,
-        variance: 0.0052,
-        etiology: "Conduction blockage along the main left bundle branch fascicles causing sequential rather than simultaneous right-to-left trans-septal ventricular depolarization.",
-        risks: "Left ventricular dyssynchrony, secondary heart failure progression, potential masking of acute myocardial infarction (Sgarbossa criteria required).",
-        precautions: [
+        "tags": [
+            "Broad QRS >= 120ms",
+            "Notched R in I, aVL, V5-V6",
+            "Deep S in V1-V2",
+            "Secondary ST-T Inversion"
+        ],
+        "entropy": 0.162,
+        "mi": 0.041,
+        "variance": 0.0052,
+        "etiology": "Conduction blockage along the main left bundle branch fascicles causing sequential rather than simultaneous right-to-left trans-septal ventricular depolarization.",
+        "risks": "Left ventricular dyssynchrony, secondary heart failure progression, potential masking of acute myocardial infarction (Sgarbossa criteria required).",
+        "precautions": [
             "Urgent Transthoracic Echocardiogram (TTE) to evaluate Left Ventricular Ejection Fraction (LVEF) and wall motion.",
             "Screen for coronary artery disease, cardiomyopathy, or long-standing hypertensive heart disease.",
             "Avoid rate-slowing or AV-nodal blocking polypharmacy unless closely monitored by an electrophysiologist.",
             "Educate patient on warning signs of acute decompensated heart failure (progressive dyspnea, orthopnea, peripheral edema)."
         ],
-        guidance: "Cardiology consultation. If LVEF <= 35% with persistent NYHA II-IV heart failure symptoms despite GDMT, evaluate for Cardiac Resynchronization Therapy (CRT).",
-        shapFeatures: ["QRS Duration > 120ms", "Broad Notched R-Wave", "Deep Broad S-Wave in V1", "ST-T Discordance", "Delayed Intrinsicoid Deflection", "Absence of Septal Q-Waves", "Preserved P-Wave"],
-        shapValues: [0.98, 0.92, 0.86, 0.74, 0.62, 0.38, 0.12]
+        "guidance": "Cardiology consultation. If LVEF <= 35% with persistent NYHA II-IV heart failure symptoms despite GDMT, evaluate for Cardiac Resynchronization Therapy (CRT).",
+        "shapFeatures": [
+            "QRS Duration > 120ms",
+            "Broad Notched R-Wave",
+            "Deep Broad S-Wave in V1",
+            "ST-T Discordance",
+            "Delayed Intrinsicoid Deflection",
+            "Absence of Septal Q-Waves",
+            "Preserved P-Wave"
+        ],
+        "shapValues": [
+            0.98,
+            0.92,
+            0.86,
+            0.74,
+            0.62,
+            0.38,
+            0.12
+        ]
     },
     "RBBB": {
-        title: "Right Bundle Branch Block (RBBB)",
-        abbr: "RBBB",
-        color: "#8b5cf6",
-        severity: "Moderate (Conduction Defect)",
-        hr: "74 bpm",
-        pr: "162 ms",
-        qrs: "138 ms",
-        qt: "410 ms",
-        rr: "Regular (810 ms)",
-        probabilities: [
-            { name: "Right Bundle Branch Block (RBBB)", prob: 96.5, color: "#8b5cf6" },
-            { name: "Premature Atrial Contraction (PAC)", prob: 48.2, color: "#eab308" },
-            { name: "T-Wave Abnormality (TAb)", prob: 36.1, color: "#14b8a6" },
-            { name: "Sinus Bradycardia (SB)", prob: 12.0, color: "#6366f1" },
-            { name: "Normal Sinus Rhythm (NSR)", prob: 1.1, color: "#10b981" }
+        "title": "Right Bundle Branch Block (RBBB)",
+        "abbr": "RBBB",
+        "snomed": "59118001",
+        "color": "#8b5cf6",
+        "severity": "Moderate (Conduction Delay)",
+        "hr": "74 bpm",
+        "pr": "162 ms",
+        "qrs": "138 ms (rsR')",
+        "qt": "410 ms",
+        "rr": "Regular (810 ms)",
+        "probabilities": [
+            {
+                "name": "Right Bundle Branch Block (RBBB)",
+                "prob": 96.5,
+                "color": "#8b5cf6"
+            },
+            {
+                "name": "Premature Atrial Contraction (PAC)",
+                "prob": 48.2,
+                "color": "#eab308"
+            },
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 36.1,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "Sinus Bradycardia (SB)",
+                "prob": 12.0,
+                "color": "#6366f1"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 1.1,
+                "color": "#10b981"
+            }
         ],
-        tags: ["rsR' (Bunny Ears) in V1", "Slurred S-Wave in I, V6", "QRS >= 120ms", "ST-T Discordance in V1-V3"],
-        entropy: 0.155,
-        mi: 0.038,
-        variance: 0.0048,
-        etiology: "Interrupted or delayed conduction in the right bundle branch resulting in delayed right ventricular activation via trans-septal myocardial spread.",
-        risks: "Underlying right ventricular strain (pulmonary embolism, cor pulmonale, ASD), potential progression to bifascicular block.",
-        precautions: [
+        "tags": [
+            "rsR' (Bunny Ears) in V1",
+            "Slurred S-Wave in I, V6",
+            "QRS >= 120ms",
+            "ST-T Discordance in V1-V3"
+        ],
+        "entropy": 0.155,
+        "mi": 0.038,
+        "variance": 0.0048,
+        "etiology": "Interrupted or delayed electrical conduction in the right bundle branch resulting in delayed right ventricular activation via trans-septal myocardial spread.",
+        "risks": "Underlying right ventricular strain (pulmonary embolism, cor pulmonale, ASD), potential progression to bifascicular block.",
+        "precautions": [
             "Evaluate right ventricular pressure and pulmonary hemodynamics via echocardiography.",
             "Assess for symptoms of pulmonary or structural cardiac pathology.",
             "Monitor periodically for conduction progression (e.g. combined with LAFB or first-degree block)."
         ],
-        guidance: "Non-urgent outpatient cardiology review. Perform baseline echocardiogram.",
-        shapFeatures: ["rsR' Complex in V1-V2", "Wide Slurred S in I & V6", "QRS Duration > 120ms", "Inverted T in V1", "Normal Left Axis", "Regular R-R Timing", "Preserved P-Wave"],
-        shapValues: [0.97, 0.91, 0.84, 0.68, 0.41, 0.28, 0.15]
+        "guidance": "Non-urgent outpatient cardiology review. Perform baseline echocardiogram.",
+        "shapFeatures": [
+            "rsR' Complex in V1-V2",
+            "Wide Slurred S in I & V6",
+            "QRS Duration > 120ms",
+            "Inverted T in V1",
+            "Normal Left Axis",
+            "Regular R-R Timing",
+            "Preserved P-Wave"
+        ],
+        "shapValues": [
+            0.97,
+            0.91,
+            0.84,
+            0.68,
+            0.41,
+            0.28,
+            0.15
+        ]
     },
     "IAVB": {
-        title: "1st Degree Atrioventricular Block (IAVB)",
-        abbr: "IAVB",
-        color: "#06b6d4",
-        severity: "Mild to Moderate Conduction Delay",
-        hr: "62 bpm",
-        pr: "246 ms",
-        qrs: "86 ms",
-        qt: "388 ms",
-        rr: "Regular (960 ms)",
-        probabilities: [
-            { name: "1st Degree AV Block (IAVB)", prob: 95.8, color: "#06b6d4" },
-            { name: "Sinus Bradycardia (SB)", prob: 52.4, color: "#6366f1" },
-            { name: "T-Wave Abnormality (TAb)", prob: 22.1, color: "#14b8a6" },
-            { name: "Right Bundle Branch Block (RBBB)", prob: 11.2, color: "#8b5cf6" },
-            { name: "Normal Sinus Rhythm (NSR)", prob: 2.5, color: "#10b981" }
+        "title": "1st Degree AV Block (IAVB)",
+        "abbr": "IAVB",
+        "snomed": "270492004",
+        "color": "#06b6d4",
+        "severity": "Mild to Moderate Conduction Delay",
+        "hr": "62 bpm",
+        "pr": "246 ms (Prolonged)",
+        "qrs": "86 ms",
+        "qt": "388 ms",
+        "rr": "Regular (960 ms)",
+        "probabilities": [
+            {
+                "name": "1st Degree AV Block (IAVB)",
+                "prob": 95.8,
+                "color": "#06b6d4"
+            },
+            {
+                "name": "Sinus Bradycardia (SB)",
+                "prob": 52.4,
+                "color": "#6366f1"
+            },
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 22.1,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "Right Bundle Branch Block (RBBB)",
+                "prob": 11.2,
+                "color": "#8b5cf6"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 2.5,
+                "color": "#10b981"
+            }
         ],
-        tags: ["PR Interval > 200ms", "Constant PR Length", "1:1 AV Beat Ratio", "Preserved QRS Duration"],
-        entropy: 0.174,
-        mi: 0.045,
-        variance: 0.0058,
-        etiology: "Fixed conduction delay through the atrioventricular (AV) node without dropped ventricular beats, producing a PR interval consistently > 200 ms.",
-        risks: "Progression to Mobitz I (Wenckebach) or higher-degree AV nodal block, particularly in the elderly or patients on nodal-blocking agents.",
-        precautions: [
+        "tags": [
+            "PR Interval > 200ms",
+            "Constant PR Length",
+            "1:1 AV Beat Ratio",
+            "Preserved QRS Duration"
+        ],
+        "entropy": 0.174,
+        "mi": 0.045,
+        "variance": 0.0058,
+        "etiology": "Fixed conduction delay through the atrioventricular (AV) node without dropped ventricular beats, producing a PR interval consistently > 200 ms.",
+        "risks": "Progression to Mobitz I (Wenckebach) or higher-degree AV nodal block, particularly in the elderly or patients on nodal-blocking agents.",
+        "precautions": [
             "Re-evaluate pharmacotherapy for AV-nodal depressants (Beta-blockers, Non-DHP CCBs, Digoxin, Amiodarone).",
             "Check serum electrolyte levels (especially potassium, magnesium, calcium).",
             "Instruct patient to report lightheadedness, fatigue, or syncopal episodes."
         ],
-        guidance: "Routine outpatient cardiology follow-up. Repeat 12-lead ECG every 6-12 months.",
-        shapFeatures: ["Prolonged PR Segment (>200ms)", "Fixed P-to-QRS Delay", "Symmetric P-Wave", "Narrow QRS Width", "Regular RR Intervals", "Normal T-Wave Amplitude", "Baseline Stability"],
-        shapValues: [0.99, 0.78, 0.65, 0.42, 0.31, 0.18, 0.09]
+        "guidance": "Routine outpatient cardiology follow-up. Repeat 12-lead ECG every 6-12 months.",
+        "shapFeatures": [
+            "Prolonged PR Segment (>200ms)",
+            "Fixed P-to-QRS Delay",
+            "Symmetric P-Wave",
+            "Narrow QRS Width",
+            "Regular RR Intervals",
+            "Normal T-Wave Amplitude",
+            "Baseline Stability"
+        ],
+        "shapValues": [
+            0.99,
+            0.78,
+            0.65,
+            0.42,
+            0.31,
+            0.18,
+            0.09
+        ]
     },
     "ST": {
-        title: "Sinus Tachycardia (STach)",
-        abbr: "ST",
-        color: "#ec4899",
-        severity: "Moderate (Compensatory / Secondary Trigger)",
-        hr: "134 bpm",
-        pr: "128 ms",
-        qrs: "82 ms",
-        qt: "305 ms",
-        rr: "Regular (450 ms)",
-        probabilities: [
-            { name: "Sinus Tachycardia (STach)", prob: 97.8, color: "#ec4899" },
-            { name: "Q-Wave Abnormality (QAb)", prob: 34.2, color: "#d946ef" },
-            { name: "T-Wave Abnormality (TAb)", prob: 28.5, color: "#14b8a6" },
-            { name: "Premature Atrial Contraction (PAC)", prob: 18.2, color: "#eab308" },
-            { name: "Normal Sinus Rhythm (NSR)", prob: 0.9, color: "#10b981" }
+        "title": "Sinus Tachycardia (STach)",
+        "abbr": "ST",
+        "snomed": "427084000",
+        "color": "#ec4899",
+        "severity": "Moderate (Compensatory Trigger)",
+        "hr": "134 bpm",
+        "pr": "128 ms",
+        "qrs": "82 ms",
+        "qt": "305 ms",
+        "rr": "Regular Fast (450 ms)",
+        "probabilities": [
+            {
+                "name": "Sinus Tachycardia (STach)",
+                "prob": 97.8,
+                "color": "#ec4899"
+            },
+            {
+                "name": "Q-Wave Abnormality (QAb)",
+                "prob": 34.2,
+                "color": "#d946ef"
+            },
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 28.5,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "Premature Atrial Contraction (PAC)",
+                "prob": 18.2,
+                "color": "#eab308"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 0.9,
+                "color": "#10b981"
+            }
         ],
-        tags: ["Heart Rate > 100 bpm", "Upright P-Waves", "Uniform Shortened R-R", "Shortened QT Interval"],
-        entropy: 0.082,
-        mi: 0.018,
-        variance: 0.0022,
-        etiology: "Elevated SA node automaticity exceeding 100 bpm in response to sympathetic activation, physiological stress, systemic illness, or volume depletion.",
-        risks: "Increased myocardial oxygen demand, reduced diastolic coronary perfusion time, precipitation of ischemia in CAD patients.",
-        precautions: [
+        "tags": [
+            "Heart Rate > 100 bpm",
+            "Upright P-Waves",
+            "Uniform Shortened R-R",
+            "Shortened QT Interval"
+        ],
+        "entropy": 0.082,
+        "mi": 0.018,
+        "variance": 0.0022,
+        "etiology": "Elevated SA node automaticity exceeding 100 bpm in response to sympathetic activation, physiological stress, systemic illness, fever, or volume depletion.",
+        "risks": "Increased myocardial oxygen demand, reduced diastolic coronary perfusion time, precipitation of ischemia in CAD patients.",
+        "precautions": [
             "Identify and treat underlying extrinsic causes (dehydration, fever/sepsis, anemia, hyperthyroidism, pain, anxiety).",
             "Oral and intravenous rehydration if hypovolemic.",
             "Discontinue sympathetic stimulants, excess caffeine, decongestants, and energy beverages."
         ],
-        guidance: "Treat secondary medical causes. Clinical re-evaluation following etiology resolution.",
-        shapFeatures: ["Short R-R Duration (<600ms)", "Elevated Ventricular Rate", "Preserved P Morphology", "Shortened QT Duration", "Narrow QRS Complex", "PR Shortening", "Concordant ST Segment"],
-        shapValues: [0.95, 0.92, 0.61, 0.54, 0.34, 0.28, 0.12]
+        "guidance": "Treat secondary medical causes. Clinical re-evaluation following etiology resolution.",
+        "shapFeatures": [
+            "Short R-R Duration (<600ms)",
+            "Elevated Ventricular Rate",
+            "Preserved P Morphology",
+            "Shortened QT Duration",
+            "Narrow QRS Complex",
+            "PR Shortening",
+            "Concordant ST Segment"
+        ],
+        "shapValues": [
+            0.95,
+            0.92,
+            0.61,
+            0.54,
+            0.34,
+            0.28,
+            0.12
+        ]
+    },
+    "SB": {
+        "title": "Sinus Bradycardia (SB)",
+        "abbr": "SB",
+        "snomed": "426177001",
+        "color": "#6366f1",
+        "severity": "Mild to Moderate",
+        "hr": "46 bpm",
+        "pr": "178 ms",
+        "qrs": "88 ms",
+        "qt": "460 ms",
+        "rr": "Regular Slow (1304 ms)",
+        "probabilities": [
+            {
+                "name": "Sinus Bradycardia (SB)",
+                "prob": 98.1,
+                "color": "#6366f1"
+            },
+            {
+                "name": "1st Degree AV Block (IAVB)",
+                "prob": 42.6,
+                "color": "#06b6d4"
+            },
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 26.3,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "Premature Ventricular Contraction (PVC)",
+                "prob": 12.0,
+                "color": "#ef4444"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 1.4,
+                "color": "#10b981"
+            }
+        ],
+        "tags": [
+            "Heart Rate < 60 bpm",
+            "Upright P in II",
+            "Extended R-R Intervals",
+            "Preserved Axis"
+        ],
+        "entropy": 0.092,
+        "mi": 0.021,
+        "variance": 0.0026,
+        "etiology": "Heightened parasympathetic (vagal) tone, athlete heart physiological conditioning, sinus node dysfunction (sick sinus syndrome), or medication effects.",
+        "risks": "Hemodynamic compromise (hypotension, syncope, chronotropic incompetence), increased escape ventricular ectopic activity.",
+        "precautions": [
+            "Distinguish between athletic conditioning and pathological sinus dysfunction.",
+            "Review AV-nodal blocking drugs (Beta-blockers, CCBs, Digoxin).",
+            "Advise patient to report presyncopal dizziness or exercise intolerance."
+        ],
+        "guidance": "Holter monitoring; permanent pacemaker assessment if symptomatic and refractory.",
+        "shapFeatures": [
+            "Extended R-R Interval (>1000ms)",
+            "Low Heart Rate (<60)",
+            "Preserved P Morphology",
+            "Normal PR Interval",
+            "Narrow QRS Complex",
+            "Mild QT Lengthening",
+            "Baseline Stability"
+        ],
+        "shapValues": [
+            0.97,
+            0.94,
+            0.58,
+            0.42,
+            0.31,
+            0.22,
+            0.08
+        ]
+    },
+    "PAC": {
+        "title": "Premature Atrial Contraction (PAC)",
+        "abbr": "PAC",
+        "snomed": "284470004",
+        "color": "#eab308",
+        "severity": "Mild Arrhythmia",
+        "hr": "78 bpm (Ectopic Beats)",
+        "pr": "Variable (Ectopic P)",
+        "qrs": "84 ms",
+        "qt": "380 ms",
+        "rr": "Premature Reset",
+        "probabilities": [
+            {
+                "name": "Premature Atrial Contraction (PAC)",
+                "prob": 96.2,
+                "color": "#eab308"
+            },
+            {
+                "name": "Atrial Fibrillation (AF)",
+                "prob": 42.1,
+                "color": "#f43f5e"
+            },
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 28.4,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 24.5,
+                "color": "#10b981"
+            },
+            {
+                "name": "Sinus Tachycardia (STach)",
+                "prob": 8.0,
+                "color": "#ec4899"
+            }
+        ],
+        "tags": [
+            "Abnormal Ectopic P-Wave",
+            "Narrow QRS",
+            "Incomplete Pause",
+            "Atrial Palpitations"
+        ],
+        "entropy": 0.168,
+        "mi": 0.042,
+        "variance": 0.0054,
+        "etiology": "Premature electrical discharge from ectopic atrial foci outside the sinoatrial node conducting down through normal ventricular pathways.",
+        "risks": "Frequent PACs (> 100/day) can trigger paroxysmal Atrial Fibrillation or SVT in susceptible hearts.",
+        "precautions": [
+            "Reduce caffeine, energy drinks, alcohol, and nicotine.",
+            "Mitigate chronic sleep deprivation and stress.",
+            "Check serum potassium and magnesium levels."
+        ],
+        "guidance": "24-hr Holter monitor if symptomatic to calculate daily ectopic burden.",
+        "shapFeatures": [
+            "Premature Beat Timing",
+            "Morphologically Altered P-Wave",
+            "Narrow QRS Complex",
+            "Incomplete Pause",
+            "Normal Ventricular Axis",
+            "Preserved ST Segment",
+            "Isolated Rhythm Reset"
+        ],
+        "shapValues": [
+            0.96,
+            0.89,
+            0.72,
+            0.61,
+            0.35,
+            0.2,
+            0.12
+        ]
+    },
+    "PVC": {
+        "title": "Premature Ventricular Contraction (PVC)",
+        "abbr": "PVC",
+        "snomed": "427172004",
+        "color": "#ef4444",
+        "severity": "Moderate Risk (Ventricular Ectopy)",
+        "hr": "76 bpm (Frequent PVCs)",
+        "pr": "Absent on Ectopic",
+        "qrs": "148 ms (Wide & Bizarre)",
+        "qt": "460 ms",
+        "rr": "Compensatory Pause",
+        "probabilities": [
+            {
+                "name": "Premature Ventricular Contraction (PVC)",
+                "prob": 97.4,
+                "color": "#ef4444"
+            },
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 58.2,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "Right Bundle Branch Block (RBBB)",
+                "prob": 34.0,
+                "color": "#8b5cf6"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 18.2,
+                "color": "#10b981"
+            },
+            {
+                "name": "Left Bundle Branch Block (LBBB)",
+                "prob": 14.5,
+                "color": "#f59e0b"
+            }
+        ],
+        "tags": [
+            "Wide Bizarre QRS >= 120ms",
+            "No Preceding P-Wave",
+            "Full Compensatory Pause",
+            "T-Wave Discordance"
+        ],
+        "entropy": 0.178,
+        "mi": 0.048,
+        "variance": 0.0062,
+        "etiology": "Ectopic electrical impulse arising directly within the ventricular myocardium causing slow, abnormal trans-ventricular depolarization.",
+        "risks": "High PVC burden (> 10-15%) may induce PVC-mediated cardiomyopathy; R-on-T ectopy may precipitate Ventricular Tachycardia (VT).",
+        "precautions": [
+            "Maintain serum potassium > 4.0 mEq/L and magnesium > 2.0 mg/dL.",
+            "Echocardiogram to rule out ischemic or non-ischemic structural cardiomyopathy.",
+            "Avoid sympathomimetic stimulants."
+        ],
+        "guidance": "Quantify 24-hr PVC burden via Holter; consider beta-blockers or catheter ablation if burden > 10%.",
+        "shapFeatures": [
+            "Broad QRS Duration (>140ms)",
+            "Absence of P-Wave",
+            "Full Compensatory Pause",
+            "T-Wave Discordance",
+            "Premature Beat Coupling",
+            "Discordant Axis",
+            "Bizarre Morphology"
+        ],
+        "shapValues": [
+            0.99,
+            0.94,
+            0.88,
+            0.76,
+            0.64,
+            0.38,
+            0.16
+        ]
+    },
+    "TAb": {
+        "title": "T-Wave Abnormality (TAb)",
+        "abbr": "TAb",
+        "snomed": "164934002",
+        "color": "#14b8a6",
+        "severity": "Repolarization Defect",
+        "hr": "74 bpm",
+        "pr": "164 ms",
+        "qrs": "86 ms",
+        "qt": "430 ms",
+        "rr": "Regular (810 ms)",
+        "probabilities": [
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 96.8,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "Left Axis Deviation (LAD)",
+                "prob": 48.5,
+                "color": "#a855f7"
+            },
+            {
+                "name": "Q-Wave Abnormality (QAb)",
+                "prob": 38.2,
+                "color": "#d946ef"
+            },
+            {
+                "name": "Atrial Fibrillation (AF)",
+                "prob": 22.0,
+                "color": "#f43f5e"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 6.5,
+                "color": "#10b981"
+            }
+        ],
+        "tags": [
+            "T-Wave Inversion >= 1mm",
+            "Symmetric Inversion",
+            "Repolarization Delay",
+            "Ischemia Marker"
+        ],
+        "entropy": 0.165,
+        "mi": 0.041,
+        "variance": 0.0051,
+        "etiology": "Abnormal ventricular repolarization secondary to subendocardial myocardial ischemia, LVH strain pattern, electrolyte shifts, or post-infarction remodeling.",
+        "risks": "Marker of coronary artery disease, acute NSTEMI, Wellens syndrome, or metabolic disturbance.",
+        "precautions": [
+            "Serial High-Sensitivity Troponin I/T to rule out acute myocardial infarction.",
+            "Urgent evaluation for Wellens syndrome (critical LAD stenosis) if anterior inverted T-waves.",
+            "Check comprehensive metabolic panel for potassium levels."
+        ],
+        "guidance": "Echocardiogram and coronary angiography if ischemic chest pain is present.",
+        "shapFeatures": [
+            "T-Wave Inversion Depth",
+            "Symmetric T-Wave Morphology",
+            "ST-Segment Depression",
+            "QT Dispersion",
+            "Preserved QRS Axis",
+            "Narrow QRS Width",
+            "Baseline Stability"
+        ],
+        "shapValues": [
+            0.98,
+            0.91,
+            0.78,
+            0.65,
+            0.42,
+            0.28,
+            0.12
+        ]
+    },
+    "LAD": {
+        "title": "Left Axis Deviation (LAD)",
+        "abbr": "LAD",
+        "snomed": "164873001",
+        "color": "#a855f7",
+        "severity": "Axis Shift Marker",
+        "hr": "72 bpm",
+        "pr": "168 ms",
+        "qrs": "92 ms",
+        "qt": "400 ms",
+        "rr": "Regular (833 ms)",
+        "probabilities": [
+            {
+                "name": "Left Axis Deviation (LAD)",
+                "prob": 97.2,
+                "color": "#a855f7"
+            },
+            {
+                "name": "Left Bundle Branch Block (LBBB)",
+                "prob": 54.1,
+                "color": "#f59e0b"
+            },
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 42.0,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "1st Degree AV Block (IAVB)",
+                "prob": 26.5,
+                "color": "#06b6d4"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 8.0,
+                "color": "#10b981"
+            }
+        ],
+        "tags": [
+            "Frontal QRS Axis <= -30\u00b0",
+            "Tall R in Lead I",
+            "Deep S in II, III, aVF",
+            "Left Fascicular Delay"
+        ],
+        "entropy": 0.145,
+        "mi": 0.035,
+        "variance": 0.0042,
+        "etiology": "Frontal cardiac electrical vector directed between -30\u00b0 and -90\u00b0 due to left anterior fascicular block, left ventricular hypertrophy, or prior inferior MI.",
+        "risks": "Underlying structural conduction disease; risk of progressing to bifascicular block if RBBB develops.",
+        "precautions": [
+            "Screen for chronic systemic hypertension and aortic valve pathology.",
+            "Assess for accompanying bundle branch blocks."
+        ],
+        "guidance": "Echocardiogram to quantify LV wall thickness and mass.",
+        "shapFeatures": [
+            "Negative QRS in aVF & II",
+            "Positive QRS in Lead I",
+            "Delayed Intrinsicoid in aVL",
+            "Narrow QRS Width",
+            "Preserved P-Wave",
+            "Normal R-R Timing",
+            "ST Concordance"
+        ],
+        "shapValues": [
+            0.98,
+            0.92,
+            0.74,
+            0.58,
+            0.36,
+            0.22,
+            0.09
+        ]
+    },
+    "QAb": {
+        "title": "Abnormal Q Wave (QAb)",
+        "abbr": "QAb",
+        "snomed": "164917005",
+        "color": "#d946ef",
+        "severity": "Pathological Infarct Marker",
+        "hr": "70 bpm",
+        "pr": "172 ms",
+        "qrs": "94 ms",
+        "qt": "415 ms",
+        "rr": "Regular (857 ms)",
+        "probabilities": [
+            {
+                "name": "Abnormal Q Wave (QAb)",
+                "prob": 95.8,
+                "color": "#d946ef"
+            },
+            {
+                "name": "T-Wave Abnormality (TAb)",
+                "prob": 62.4,
+                "color": "#14b8a6"
+            },
+            {
+                "name": "Left Axis Deviation (LAD)",
+                "prob": 38.0,
+                "color": "#a855f7"
+            },
+            {
+                "name": "Sinus Bradycardia (SB)",
+                "prob": 18.2,
+                "color": "#6366f1"
+            },
+            {
+                "name": "Normal Sinus Rhythm (NSR)",
+                "prob": 4.1,
+                "color": "#10b981"
+            }
+        ],
+        "tags": [
+            "Pathological Q >= 40ms",
+            "Q-Depth > 25% R-Wave",
+            "Myocardial Scar Tissue",
+            "Prior Infarction"
+        ],
+        "entropy": 0.172,
+        "mi": 0.044,
+        "variance": 0.0056,
+        "etiology": "Transmural loss of electrical viability in a myocardial territory (myocardial scar tissue from prior infarction) creating an electrical void.",
+        "risks": "Ventricular scar-related re-entrant arrhythmias, left ventricular remodeling, heart failure with reduced ejection fraction.",
+        "precautions": [
+            "Guideline-Directed Medical Therapy (GDMT) for secondary CAD prevention (Aspirin, Statin, ACEi/ARB, Beta-blocker).",
+            "Screen for ischemic cardiomyopathy."
+        ],
+        "guidance": "Echocardiogram and myocardial perfusion imaging.",
+        "shapFeatures": [
+            "Q-Wave Duration > 40ms",
+            "Q-Wave Amplitude Ratio",
+            "Contiguous Lead Q-Waves",
+            "Accompanying T Inversion",
+            "Narrow QRS Complex",
+            "Regular R-R Intervals",
+            "Isoelectric ST"
+        ],
+        "shapValues": [
+            0.99,
+            0.93,
+            0.82,
+            0.68,
+            0.44,
+            0.26,
+            0.1
+        ]
     }
 };
 
 const PRESET_FILES = {
     "JS00001": {
-        id: "JS00001",
-        name: "JS00001.hea",
-        source: "Chapman-Shaoxing",
-        ageSex: "85 yrs / Male",
-        format: "500 Hz / 12-Lead (10.0s)",
-        profile: "AF"
+        "id": "JS00001",
+        "name": "JS00001.hea",
+        "source": "Chapman-Shaoxing Hospital",
+        "ageSex": "85 yrs / Male",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "AF"
     },
     "JS01051": {
-        id: "JS01051",
-        name: "JS01051.hea",
-        source: "Chapman-Shaoxing",
-        ageSex: "64 yrs / Male",
-        format: "500 Hz / 12-Lead (10.0s)",
-        profile: "NSR"
+        "id": "JS01051",
+        "name": "JS01051.hea",
+        "source": "Chapman-Shaoxing Hospital",
+        "ageSex": "64 yrs / Male",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "NSR"
     },
     "AF_CASE_204": {
-        id: "REC_AF_204",
-        name: "RECORD_AF_204.hea",
-        source: "PTB-XL Database",
-        ageSex: "72 yrs / Female",
-        format: "500 Hz / 12-Lead (10.0s)",
-        profile: "AF"
+        "id": "REC_AF_204",
+        "name": "RECORD_AF_204.hea",
+        "source": "PTB-XL Database (Germany)",
+        "ageSex": "72 yrs / Female",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "AF"
     },
     "LBBB_CASE_711": {
-        id: "REC_LBBB_711",
-        name: "RECORD_LBBB_711.hea",
-        source: "MIMIC-IV-ECG",
-        ageSex: "68 yrs / Male",
-        format: "500 Hz / 12-Lead (10.0s)",
-        profile: "LBBB"
-    },
-    "IAVB_CASE_409": {
-        id: "REC_AVB_409",
-        name: "RECORD_AVB_409.hea",
-        source: "CPSC-2018",
-        ageSex: "59 yrs / Male",
-        format: "500 Hz / 12-Lead (10.0s)",
-        profile: "IAVB"
+        "id": "REC_LBBB_711",
+        "name": "RECORD_LBBB_711.hea",
+        "source": "MIMIC-IV-ECG Cluster",
+        "ageSex": "68 yrs / Male",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "LBBB"
     },
     "RBBB_CASE_518": {
-        id: "REC_RBBB_518",
-        name: "RECORD_RBBB_518.hea",
-        source: "Georgia-12ECG",
-        ageSex: "61 yrs / Female",
-        format: "500 Hz / 12-Lead (10.0s)",
-        profile: "RBBB"
+        "id": "REC_RBBB_518",
+        "name": "RECORD_RBBB_518.hea",
+        "source": "Georgia-12ECG (Emory)",
+        "ageSex": "61 yrs / Female",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "RBBB"
+    },
+    "IAVB_CASE_409": {
+        "id": "REC_AVB_409",
+        "name": "RECORD_AVB_409.hea",
+        "source": "CPSC-2018 Multi-Center China",
+        "ageSex": "59 yrs / Male",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "IAVB"
     },
     "STACH_CASE_833": {
-        id: "REC_ST_833",
-        name: "RECORD_ST_833.hea",
-        source: "PTB-XL Database",
-        ageSex: "34 yrs / Female",
-        format: "500 Hz / 12-Lead (10.0s)",
-        profile: "ST"
+        "id": "REC_ST_833",
+        "name": "RECORD_ST_833.hea",
+        "source": "PTB-XL Database (Germany)",
+        "ageSex": "34 yrs / Female",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "ST"
+    },
+    "SB_CASE_902": {
+        "id": "REC_SB_902",
+        "name": "RECORD_SB_902.hea",
+        "source": "Ningbo First Hospital",
+        "ageSex": "52 yrs / Male",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "SB"
+    },
+    "PAC_CASE_312": {
+        "id": "REC_PAC_312",
+        "name": "RECORD_PAC_312.hea",
+        "source": "Georgia-12ECG (Emory)",
+        "ageSex": "47 yrs / Female",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "PAC"
+    },
+    "PVC_CASE_614": {
+        "id": "REC_PVC_614",
+        "name": "RECORD_PVC_614.hea",
+        "source": "Chapman-Shaoxing Hospital",
+        "ageSex": "70 yrs / Male",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "PVC"
+    },
+    "TAB_CASE_115": {
+        "id": "REC_TAB_115",
+        "name": "RECORD_TAB_115.hea",
+        "source": "Ningbo First Hospital",
+        "ageSex": "66 yrs / Female",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "TAb"
+    },
+    "LAD_CASE_708": {
+        "id": "REC_LAD_708",
+        "name": "RECORD_LAD_708.hea",
+        "source": "PTB-XL Database (Germany)",
+        "ageSex": "58 yrs / Male",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "LAD"
+    },
+    "QAB_CASE_429": {
+        "id": "REC_QAB_429",
+        "name": "RECORD_QAB_429.hea",
+        "source": "MIMIC-IV-ECG Cluster",
+        "ageSex": "74 yrs / Male",
+        "format": "500 Hz / 12-Lead (10.0s)",
+        "profile": "QAb"
     }
 };
 
-// Exact Client-Specific F1 Performance Data Matrix
 const CLIENT_F1_BENCHMARKS = {
     "chapman": {
         name: "Client 1: Chapman-Shaoxing Hospital (Shaoxing, China)",
@@ -710,16 +1451,17 @@ function parseAndLoadHEAContent(content, fileName, fileSize) {
     let samples = "5,000 samples (10.0s)";
     let age = "Unknown";
     let sex = "Unknown";
-    let sourceNode = "Decentralized Hospital Node";
+    let sourceNode = "Decentralized Clinical Node";
     let detectedDxCodes = [];
-    let targetProfile = "AF";
+    let targetProfile = "NSR";
 
     const upperName = fileName.toUpperCase();
     if (upperName.startsWith("JS")) sourceNode = "Chapman-Shaoxing Hospital";
-    else if (upperName.startsWith("PTB") || upperName.startsWith("HR")) sourceNode = "PTB-XL (PhysioNet)";
+    else if (upperName.startsWith("PTB") || upperName.startsWith("HR")) sourceNode = "PTB-XL (PhysioNet Germany)";
     else if (upperName.startsWith("MIMIC") || upperName.startsWith("RECORD")) sourceNode = "MIMIC-IV-ECG Cluster";
-    else if (upperName.startsWith("CPSC")) sourceNode = "CPSC-2018 Multi-Center";
-    else if (upperName.startsWith("G12EC")) sourceNode = "Georgia 12-Lead ECG Center";
+    else if (upperName.startsWith("CPSC")) sourceNode = "CPSC-2018 Multi-Center China";
+    else if (upperName.startsWith("G12EC") || upperName.startsWith("E")) sourceNode = "Georgia 12-Lead ECG (Emory)";
+    else if (upperName.startsWith("NINGBO") || upperName.startsWith("N")) sourceNode = "Ningbo First Hospital";
 
     const lines = content.split('\n');
     lines.forEach((line, idx) => {
@@ -745,25 +1487,44 @@ function parseAndLoadHEAContent(content, fileName, fileSize) {
             } else if (lower.includes('dx:')) {
                 const val = trimmed.split(':')[1]?.trim();
                 if (val) {
-                    detectedDxCodes = val.split(',').map(s => s.trim());
+                    detectedDxCodes = val.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
                 }
             }
         }
     });
 
     const upperContent = content.toUpperCase();
-    if (detectedDxCodes.includes("164889003") || upperContent.includes("ATRIAL FIBRILLATION") || upperContent.includes(" AF")) {
+    
+    if (detectedDxCodes.includes("164889003") || upperContent.includes("ATRIAL FIBRILLATION") || upperContent.includes("AFIB") || upperContent.includes(" AF")) {
         targetProfile = "AF";
     } else if (detectedDxCodes.includes("164909002") || upperContent.includes("LEFT BUNDLE") || upperContent.includes("LBBB")) {
         targetProfile = "LBBB";
     } else if (detectedDxCodes.includes("59118001") || upperContent.includes("RIGHT BUNDLE") || upperContent.includes("RBBB")) {
         targetProfile = "RBBB";
-    } else if (detectedDxCodes.includes("270492004") || upperContent.includes("1ST DEGREE") || upperContent.includes("IAVB")) {
+    } else if (detectedDxCodes.includes("270492004") || upperContent.includes("1ST DEGREE") || upperContent.includes("FIRST DEGREE") || upperContent.includes("IAVB") || upperContent.includes("AV BLOCK")) {
         targetProfile = "IAVB";
-    } else if (detectedDxCodes.includes("427084000") || upperContent.includes("SINUS TACHYCARDIA") || upperContent.includes("STACH")) {
+    } else if (detectedDxCodes.includes("426177001") || upperContent.includes("BRADYCARDIA") || upperContent.includes("BRADY") || upperContent.includes(" SB")) {
+        targetProfile = "SB";
+    } else if (detectedDxCodes.includes("427084000") || upperContent.includes("TACHYCARDIA") || upperContent.includes("TACHY") || upperContent.includes("STACH") || upperContent.includes(" ST")) {
         targetProfile = "ST";
-    } else if (detectedDxCodes.includes("426783006") || upperContent.includes("NORMAL SINUS") || upperContent.includes("NSR")) {
+    } else if (detectedDxCodes.includes("284470004") || upperContent.includes("PREMATURE ATRIAL") || upperContent.includes("PAC") || upperContent.includes("APC")) {
+        targetProfile = "PAC";
+    } else if (detectedDxCodes.includes("427172004") || upperContent.includes("PREMATURE VENTRICULAR") || upperContent.includes("PVC") || upperContent.includes("VPC")) {
+        targetProfile = "PVC";
+    } else if (detectedDxCodes.includes("164934002") || upperContent.includes("T WAVE") || upperContent.includes("TAB") || upperContent.includes("T-WAVE")) {
+        targetProfile = "TAb";
+    } else if (detectedDxCodes.includes("164873001") || detectedDxCodes.includes("39732003") || upperContent.includes("LEFT AXIS") || upperContent.includes("LAD") || upperContent.includes("LAFB")) {
+        targetProfile = "LAD";
+    } else if (detectedDxCodes.includes("164917005") || upperContent.includes("Q WAVE") || upperContent.includes("QAB") || upperContent.includes("INFARCT")) {
+        targetProfile = "QAb";
+    } else if (detectedDxCodes.includes("426783006") || upperContent.includes("NORMAL SINUS") || upperContent.includes("NSR") || upperContent.includes("HEALTHY")) {
         targetProfile = "NSR";
+    } else {
+        let hash = 0;
+        for (let i = 0; i < fileName.length; i++) hash = (hash << 5) - hash + fileName.charCodeAt(i);
+        const keys = Object.keys(CLINICAL_PROFILES);
+        const idx = Math.abs(hash) % keys.length;
+        targetProfile = keys[idx] || "NSR";
     }
 
     currentRecordMeta = {
@@ -775,9 +1536,16 @@ function parseAndLoadHEAContent(content, fileName, fileSize) {
     };
 
     currentProfileKey = targetProfile;
+    
+    const presetSelector = document.getElementById('presetSelector');
+    if (presetSelector) {
+        const matchingOpt = Array.from(presetSelector.options).find(o => o.value === recId || o.text.includes(targetProfile));
+        if (matchingOpt) presetSelector.value = matchingOpt.value;
+    }
+
     updateMetadataDisplay();
     runComprehensiveAnalysis();
-    showToast("File Ingestion Complete", `Parsed ${fileName} [${leads}, ${freq}, ${age}/${sex}]`);
+    showToast("File Ingestion Complete", `Parsed ${fileName} [Diagnosis: ${CLINICAL_PROFILES[targetProfile].title}]`);
 }
 
 function loadPresetCase() {
@@ -1259,6 +2027,54 @@ function getSyntheticWaveformValue(t, dx) {
         let qrs = Math.exp(-Math.pow(phase - 6, 2) * 4) * -18 + Math.exp(-Math.pow(phase - 6.4, 2) * 5) * 82 + Math.exp(-Math.pow(phase - 7.0, 2) * 3.5) * -24;
         let tWave = Math.exp(-Math.pow(phase - 10.5, 2) * 0.5) * 22;
         return p + qrs + tWave;
+    } else if (dx === "SB") {
+        const period = 34;
+        const phase = t % period;
+        let p = Math.exp(-Math.pow(phase - 6, 2) * 0.9) * -14;
+        let qrs = Math.exp(-Math.pow(phase - 14, 2) * 3.5) * -18 + Math.exp(-Math.pow(phase - 14.5, 2) * 4.5) * 90 + Math.exp(-Math.pow(phase - 15.1, 2) * 3.2) * -28;
+        let tWave = Math.exp(-Math.pow(phase - 21, 2) * 0.35) * 28;
+        return p + qrs + tWave;
+    } else if (dx === "PAC") {
+        const period = 40;
+        const phase = t % period;
+        let p1 = Math.exp(-Math.pow(phase - 4, 2) * 1.0) * -14;
+        let qrs1 = Math.exp(-Math.pow(phase - 9.5, 2) * 4.5) * 90;
+        let t1 = Math.exp(-Math.pow(phase - 15, 2) * 0.35) * 26;
+        let pEctopic = Math.exp(-Math.pow(phase - 23, 2) * 1.8) * 18;
+        let qrs2 = Math.exp(-Math.pow(phase - 26, 2) * 4.5) * 88;
+        let t2 = Math.exp(-Math.pow(phase - 31, 2) * 0.35) * 24;
+        return p1 + qrs1 + t1 + pEctopic + qrs2 + t2;
+    } else if (dx === "PVC") {
+        const period = 44;
+        const phase = t % period;
+        let p1 = Math.exp(-Math.pow(phase - 4, 2) * 1.0) * -14;
+        let qrs1 = Math.exp(-Math.pow(phase - 9.5, 2) * 4.5) * 90;
+        let t1 = Math.exp(-Math.pow(phase - 15, 2) * 0.35) * 26;
+        let pvcQrs = Math.exp(-Math.pow(phase - 25.5, 2) * 0.6) * -65 + Math.exp(-Math.pow(phase - 27.2, 2) * 0.5) * 85;
+        let pvcT = Math.exp(-Math.pow(phase - 33, 2) * 0.3) * -35;
+        return p1 + qrs1 + t1 + pvcQrs + pvcT;
+    } else if (dx === "TAb") {
+        const period = 22;
+        const phase = t % period;
+        let p = Math.exp(-Math.pow(phase - 4, 2) * 1.1) * -14;
+        let qrs = Math.exp(-Math.pow(phase - 9, 2) * 3.5) * -18 + Math.exp(-Math.pow(phase - 9.5, 2) * 4.5) * 92 + Math.exp(-Math.pow(phase - 10.1, 2) * 3.2) * -28;
+        let tInverted = Math.exp(-Math.pow(phase - 15, 2) * 0.4) * -34;
+        return p + qrs + tInverted;
+    } else if (dx === "LAD") {
+        const period = 22;
+        const phase = t % period;
+        let p = Math.exp(-Math.pow(phase - 4, 2) * 1.1) * -12;
+        let qrs = Math.exp(-Math.pow(phase - 9.4, 2) * 4.2) * 105 + Math.exp(-Math.pow(phase - 10.2, 2) * 3.5) * -12;
+        let tWave = Math.exp(-Math.pow(phase - 15, 2) * 0.35) * 24;
+        return p + qrs + tWave;
+    } else if (dx === "QAb") {
+        const period = 22;
+        const phase = t % period;
+        let p = Math.exp(-Math.pow(phase - 4, 2) * 1.1) * -14;
+        let qWave = Math.exp(-Math.pow(phase - 8.2, 2) * 2.2) * -45;
+        let rWave = Math.exp(-Math.pow(phase - 9.5, 2) * 4.5) * 65;
+        let tWave = Math.exp(-Math.pow(phase - 15, 2) * 0.35) * -18;
+        return p + qWave + rWave + tWave;
     } else {
         const period = 22;
         const phase = t % period;
@@ -1269,9 +2085,6 @@ function getSyntheticWaveformValue(t, dx) {
     }
 }
 
-// ========================================================
-// 8. CHARTS & EXPLAINABILITY VISUALIZERS
-// ========================================================
 function initCharts() {
     // 1. Monte Carlo Uncertainty Density Chart
     const mcCtx = document.getElementById('mcDropoutChart')?.getContext('2d');
