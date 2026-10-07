@@ -54,7 +54,7 @@ let gradCamEnabled = true;
 let uploadedHeaFile = null;
 let uploadedMatFile = null;
 
-// Backend Received Data
+// Backend Received Data (NO STATIC MOCK DATA)
 let latestBackendResponse = null;
 let realEcgData = null; // { sampling_rate: 500, lead_names: [...], signals: [[...]] }
 let realGradCamValues = null; // 1D array length 5000
@@ -108,8 +108,11 @@ function switchSection(sectionId) {
     if (sectionId === 'studio') {
         setTimeout(renderEcgCanvas, 50);
     } else if (sectionId === 'xai') {
-        if (latestBackendResponse && latestBackendResponse.uncertainty) {
-            setTimeout(() => renderMCDropoutChart(latestBackendResponse.uncertainty), 50);
+        if (latestBackendResponse && latestBackendResponse.uncertainty && latestBackendResponse.uncertainty.available) {
+            setTimeout(() => {
+                renderMCDropoutChart(latestBackendResponse.uncertainty);
+                updateUncertaintyKpiCards(latestBackendResponse.uncertainty, latestBackendResponse.prediction);
+            }, 50);
         }
     }
 }
@@ -126,7 +129,7 @@ function showToast(title, msg) {
     
     setTimeout(() => {
         toast.classList.remove('show');
-    }, 3500);
+    }, 3800);
 }
 
 // ==============================================================================
@@ -158,7 +161,7 @@ async function checkBackendHealth() {
         }
     }
     
-    if (statusLabel) statusLabel.textContent = 'FastAPI (:8000 ready)';
+    if (statusLabel) statusLabel.textContent = 'FastAPI Ready (:8000)';
     if (statusIndicator) {
         statusIndicator.classList.add('online');
         statusIndicator.classList.remove('offline');
@@ -166,7 +169,7 @@ async function checkBackendHealth() {
 }
 
 // ==============================================================================
-// 4. PAGE 1: FILE INGESTION & MODEL SELECTION
+// 4. PAGE 1: FILE INGESTION & VALIDATION (.hea + .mat matching stems)
 // ==============================================================================
 function onModelChange() {
     const el = document.getElementById('selectedOptimizer');
@@ -207,215 +210,58 @@ function setupDropzone() {
     });
 }
 
+function getFileStem(filename) {
+    if (!filename) return '';
+    return filename.replace(/\.[^/.]+$/, "");
+}
+
 function handleFileSelection(files) {
     if (!files || files.length === 0) return;
+    
+    let candidateHea = uploadedHeaFile;
+    let candidateMat = uploadedMatFile;
     
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const ext = file.name.split('.').pop().toLowerCase();
         if (ext === 'hea') {
-            uploadedHeaFile = file;
+            candidateHea = file;
         } else if (['mat', 'dat'].includes(ext)) {
-            uploadedMatFile = file;
+            candidateMat = file;
         }
     }
+    
+    // Verify matching record ID / stems if both are present
+    if (candidateHea && candidateMat) {
+        const heaStem = getFileStem(candidateHea.name);
+        const matStem = getFileStem(candidateMat.name);
+        
+        if (heaStem !== matStem) {
+            showToast('Mismatched Record Files', `Header "${candidateHea.name}" and signal "${candidateMat.name}" do not match! Both must share the same record stem.`);
+            uploadedHeaFile = candidateHea;
+            uploadedMatFile = null;
+            updateFileBadges();
+            return;
+        }
+    }
+    
+    uploadedHeaFile = candidateHea;
+    uploadedMatFile = candidateMat;
     
     updateFileBadges();
     
-    // If a .hea file is uploaded, parse it immediately to display fiducials & SHAP
-    if (uploadedHeaFile) {
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            parseAndDisplayHeaShap(evt.target.result, uploadedHeaFile.name);
-        };
-        reader.readAsText(uploadedHeaFile);
-    }
-    
     if (uploadedHeaFile && uploadedMatFile) {
-        showToast('Files Ready', `Record: ${uploadedHeaFile.name.replace('.hea', '')} (.hea + .mat loaded)`);
+        const stem = getFileStem(uploadedHeaFile.name);
+        showToast('WFDB Record Ready', `Record "${stem}" (.hea + .mat) verified. Click "Analyze ECG" to run inference.`);
+        const pStatus = document.getElementById('predStatus');
+        if (pStatus) {
+            pStatus.textContent = "Ready for Analysis";
+            pStatus.className = "badge badge-primary";
+        }
     } else if (uploadedHeaFile) {
-        showToast('Header Loaded', 'Parsed .hea metadata & SHAP fiducials. Add .mat for full neural inference.');
+        showToast('Header Loaded', `Header "${uploadedHeaFile.name}" selected. Please also select matching .mat signal file.`);
     } else if (uploadedMatFile) {
-        showToast('Signal Loaded', 'Please also select matching .hea header file');
-    }
-}
-
-function parseAndDisplayHeaShap(heaText, fileName) {
-    const lines = heaText.split('\n');
-    let dxCodes = [];
-    let age = "--";
-    let sex = "--";
-    let fs = 500;
-    
-    for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('#Dx:') || trimmed.startsWith('# Dx:')) {
-            const codeStr = trimmed.replace(/^#\s*Dx:\s*/i, '');
-            dxCodes = codeStr.split(',').map(s => s.trim());
-        } else if (trimmed.startsWith('#Age:')) {
-            age = trimmed.replace('#Age:', '').trim();
-        } else if (trimmed.startsWith('#Sex:')) {
-            sex = trimmed.replace('#Sex:', '').trim();
-        } else if (!trimmed.startsWith('#') && trimmed.length > 0) {
-            const parts = trimmed.split(/\s+/);
-            if (parts.length >= 3 && !isNaN(parseInt(parts[2]))) {
-                fs = parseInt(parts[2]);
-            }
-        }
-    }
-    
-    // Map SNOMED code to class
-    const snomedToClass = {
-        "164889003": "AF",
-        "270492004": "IAVB",
-        "164873001": "LAD",
-        "164909002": "LBBB",
-        "698252002": "NSIVCB",
-        "426783006": "NSR",
-        "284470004": "PAC",
-        "164917005": "QAb",
-        "59118001":  "RBBB",
-        "426177001": "SB",
-        "427084000": "STach",
-        "164934002": "TAb"
-    };
-    
-    let detectedClass = "AF";
-    for (const c of dxCodes) {
-        if (snomedToClass[c]) {
-            detectedClass = snomedToClass[c];
-            break;
-        }
-        if (CLASS_NAMES.includes(c.toUpperCase())) {
-            detectedClass = c.toUpperCase();
-            break;
-        }
-    }
-    
-    const metaId = document.getElementById('metaId');
-    const metaFs = document.getElementById('metaFs');
-    if (metaId) metaId.textContent = fileName.replace(/\.[^/.]+$/, "");
-    if (metaFs) metaFs.textContent = `${fs} Hz`;
-    
-    const fiducialsMap = {
-        "AF": { heart_rate_bpm: 142.0, mean_rr_interval: 0.42, pr_interval: 0.0, qrs_duration: 0.088, qt_interval: 0.36, n_beats_detected: 23 },
-        "NSR": { heart_rate_bpm: 72.0, mean_rr_interval: 0.83, pr_interval: 0.155, qrs_duration: 0.086, qt_interval: 0.39, n_beats_detected: 12 },
-        "LBBB": { heart_rate_bpm: 76.0, mean_rr_interval: 0.79, pr_interval: 0.170, qrs_duration: 0.144, qt_interval: 0.44, n_beats_detected: 13 },
-        "RBBB": { heart_rate_bpm: 74.0, mean_rr_interval: 0.81, pr_interval: 0.160, qrs_duration: 0.138, qt_interval: 0.41, n_beats_detected: 12 },
-        "IAVB": { heart_rate_bpm: 68.0, mean_rr_interval: 0.88, pr_interval: 0.248, qrs_duration: 0.090, qt_interval: 0.39, n_beats_detected: 11 },
-        "STach": { heart_rate_bpm: 132.0, mean_rr_interval: 0.45, pr_interval: 0.130, qrs_duration: 0.084, qt_interval: 0.32, n_beats_detected: 22 },
-        "SB": { heart_rate_bpm: 46.0, mean_rr_interval: 1.30, pr_interval: 0.180, qrs_duration: 0.088, qt_interval: 0.46, n_beats_detected: 8 },
-        "PAC": { heart_rate_bpm: 84.0, mean_rr_interval: 0.71, pr_interval: 0.140, qrs_duration: 0.088, qt_interval: 0.38, n_beats_detected: 14 },
-        "QAb": { heart_rate_bpm: 71.0, mean_rr_interval: 0.84, pr_interval: 0.165, qrs_duration: 0.095, qt_interval: 0.40, n_beats_detected: 12 },
-        "TAb": { heart_rate_bpm: 70.0, mean_rr_interval: 0.85, pr_interval: 0.160, qrs_duration: 0.088, qt_interval: 0.43, n_beats_detected: 12 },
-        "LAD": { heart_rate_bpm: 73.0, mean_rr_interval: 0.82, pr_interval: 0.165, qrs_duration: 0.092, qt_interval: 0.39, n_beats_detected: 12 },
-        "NSIVCB": { heart_rate_bpm: 75.0, mean_rr_interval: 0.80, pr_interval: 0.160, qrs_duration: 0.118, qt_interval: 0.41, n_beats_detected: 12 }
-    };
-    
-    const fids = fiducialsMap[detectedClass] || fiducialsMap["AF"];
-    updateFiducialsBar(fids);
-    
-    const shapAttributionsMap = {
-        "AF": {
-            "mean_rr_interval": -0.52,
-            "heart_rate_bpm": 0.48,
-            "p_wave_amplitude": -0.42,
-            "qrs_amplitude": 0.12,
-            "t_wave_amplitude": 0.08,
-            "pr_interval": -0.35,
-            "qt_interval": 0.14,
-            "qrs_duration": 0.06,
-            "n_beats_detected": 0.28
-        },
-        "NSR": {
-            "mean_rr_interval": 0.15,
-            "heart_rate_bpm": 0.12,
-            "p_wave_amplitude": 0.28,
-            "qrs_amplitude": 0.25,
-            "t_wave_amplitude": 0.22,
-            "pr_interval": 0.18,
-            "qt_interval": 0.16,
-            "qrs_duration": 0.14,
-            "n_beats_detected": 0.10
-        },
-        "LBBB": {
-            "mean_rr_interval": 0.05,
-            "heart_rate_bpm": 0.04,
-            "p_wave_amplitude": 0.08,
-            "qrs_amplitude": 0.42,
-            "t_wave_amplitude": -0.22,
-            "pr_interval": 0.11,
-            "qt_interval": 0.29,
-            "qrs_duration": 0.74,
-            "n_beats_detected": 0.09
-        },
-        "RBBB": {
-            "mean_rr_interval": 0.06,
-            "heart_rate_bpm": 0.05,
-            "p_wave_amplitude": 0.10,
-            "qrs_amplitude": 0.48,
-            "t_wave_amplitude": -0.15,
-            "pr_interval": 0.09,
-            "qt_interval": 0.22,
-            "qrs_duration": 0.68,
-            "n_beats_detected": 0.08
-        },
-        "IAVB": {
-            "mean_rr_interval": 0.08,
-            "heart_rate_bpm": -0.05,
-            "p_wave_amplitude": 0.14,
-            "qrs_amplitude": 0.05,
-            "t_wave_amplitude": 0.04,
-            "pr_interval": 0.78,
-            "qt_interval": 0.12,
-            "qrs_duration": 0.08,
-            "n_beats_detected": 0.06
-        },
-        "STach": {
-            "mean_rr_interval": -0.64,
-            "heart_rate_bpm": 0.72,
-            "p_wave_amplitude": 0.15,
-            "qrs_amplitude": 0.09,
-            "t_wave_amplitude": 0.11,
-            "pr_interval": -0.15,
-            "qt_interval": -0.22,
-            "qrs_duration": 0.04,
-            "n_beats_detected": 0.55
-        },
-        "SB": {
-            "mean_rr_interval": 0.68,
-            "heart_rate_bpm": -0.70,
-            "p_wave_amplitude": 0.09,
-            "qrs_amplitude": 0.05,
-            "t_wave_amplitude": 0.08,
-            "pr_interval": 0.12,
-            "qt_interval": 0.25,
-            "qrs_duration": 0.03,
-            "n_beats_detected": -0.45
-        }
-    };
-    
-    const shapVals = shapAttributionsMap[detectedClass] || shapAttributionsMap["AF"];
-    
-    renderRealShapChart({
-        available: true,
-        target_class: detectedClass,
-        features: shapVals,
-        fiducials: fids
-    });
-    
-    const previewProb = {};
-    CLASS_NAMES.forEach(c => previewProb[c] = (c === detectedClass ? 0.94 : 0.03));
-    renderProbabilityBars(previewProb, detectedClass);
-    
-    const pTitle = document.getElementById('primaryPredTitle');
-    const pBadge = document.getElementById('predProbBadge');
-    const pStatus = document.getElementById('predStatus');
-    if (pTitle) pTitle.textContent = CLASS_FULL_NAMES[detectedClass] || detectedClass;
-    if (pBadge) pBadge.textContent = `Header Detected: ${detectedClass}`;
-    if (pStatus) {
-        pStatus.textContent = "Header Parsed (Ready to Run)";
-        pStatus.className = "badge badge-info";
+        showToast('Signal Loaded', `Signal "${uploadedMatFile.name}" selected. Please also select matching .hea header file.`);
     }
 }
 
@@ -450,7 +296,7 @@ function updateFileBadges() {
     }
     
     if (uploadedHeaFile && metaId) {
-        metaId.textContent = uploadedHeaFile.name.replace(/\.[^/.]+$/, "");
+        metaId.textContent = getFileStem(uploadedHeaFile.name);
     }
     
     if (fileStatusBadge) {
@@ -481,9 +327,9 @@ JS00001.mat 16+24 1000/mV 16 0 0 0 0 V3
 JS00001.mat 16+24 1000/mV 16 0 0 0 0 V4
 JS00001.mat 16+24 1000/mV 16 0 0 0 0 V5
 JS00001.mat 16+24 1000/mV 16 0 0 0 0 V6
-#Age: 85
+#Age: 72
 #Sex: Male
-#Dx: 164889003,59118001
+#Dx: 164889003
 `;
     
     // Create authentic 16-bit binary signal buffer for (12, 5000)
@@ -492,7 +338,7 @@ JS00001.mat 16+24 1000/mV 16 0 0 0 0 V6
     for (let i = 0; i < 5000; i++) {
         for (let ch = 0; ch < 12; ch++) {
             const t = i / 500.0;
-            let val = Math.sin(2 * Math.PI * 1.3 * t) * 200 + (Math.random() - 0.5) * 50;
+            let val = Math.sin(2 * Math.PI * 1.3 * t) * 200 + (Math.sin(2 * Math.PI * 0.1 * t) * 50);
             if (i % 380 === 0) val += 1200; // R-peak
             int16View[i * 12 + ch] = Math.round(val);
         }
@@ -502,7 +348,7 @@ JS00001.mat 16+24 1000/mV 16 0 0 0 0 V6
     uploadedMatFile = new File([buffer], "JS00001.mat", { type: "application/octet-stream" });
     
     updateFileBadges();
-    showToast('Record Loaded', 'Sample JS00001 (.hea + .mat) ready. Click Analyze.');
+    showToast('Record Loaded', 'Sample JS00001 (.hea + .mat) ready. Click Analyze ECG.');
 }
 
 // ==============================================================================
@@ -510,7 +356,14 @@ JS00001.mat 16+24 1000/mV 16 0 0 0 0 V6
 // ==============================================================================
 async function runBackendAnalysis() {
     if (!uploadedHeaFile || !uploadedMatFile) {
-        showToast('Missing Files', 'Please select both .hea and .mat files for the record.');
+        showToast('Missing Files', 'Both .hea and .mat files are required for WFDB record analysis.');
+        return;
+    }
+    
+    const heaStem = getFileStem(uploadedHeaFile.name);
+    const matStem = getFileStem(uploadedMatFile.name);
+    if (heaStem !== matStem) {
+        showToast('Record ID Mismatch', `Cannot analyze: "${uploadedHeaFile.name}" and "${uploadedMatFile.name}" belong to different records.`);
         return;
     }
     
@@ -519,9 +372,12 @@ async function runBackendAnalysis() {
     
     if (analyzeBtn) {
         analyzeBtn.disabled = true;
-        analyzeBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Running Real Inference...`;
+        analyzeBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Executing Inference Pipeline...`;
     }
-    if (predStatus) predStatus.textContent = "Processing Pipeline...";
+    if (predStatus) {
+        predStatus.textContent = "Processing Pipeline...";
+        predStatus.className = "badge badge-info";
+    }
     
     const formData = new FormData();
     formData.append('hea_file', uploadedHeaFile);
@@ -562,11 +418,14 @@ async function runBackendAnalysis() {
     
     if (responseData && responseData.success) {
         latestBackendResponse = responseData;
-        showToast('Inference Completed', `Predicted: ${responseData.prediction.class} (${(responseData.prediction.probability * 100).toFixed(1)}%)`);
+        showToast('Inference Complete', `Predicted: ${responseData.prediction.class} (${(responseData.prediction.probability * 100).toFixed(1)}%)`);
         updateUiWithRealBackendResults(responseData);
     } else {
-        showToast('Inference Error', `Backend request failed: ${errorDetail || 'Connection refused. Ensure backend/main.py is running on port 8000.'}`);
-        if (predStatus) predStatus.textContent = "Inference Failed";
+        showToast('Analysis Error', `Backend request failed: ${errorDetail || 'Ensure backend/main.py is running on port 8000.'}`);
+        if (predStatus) {
+            predStatus.textContent = "Inference Failed";
+            predStatus.className = "badge badge-danger";
+        }
     }
 }
 
@@ -574,30 +433,41 @@ async function runBackendAnalysis() {
 // 6. UPDATE UI WITH REAL BACKEND RESULTS
 // ==============================================================================
 function updateUiWithRealBackendResults(data) {
-    // 1. Metadata
+    // 1. Record Metadata
     if (data.record) {
-        document.getElementById('metaId').textContent = data.record.record_id || '--';
-        document.getElementById('metaFs').textContent = `${data.record.sampling_rate || 500} Hz`;
-        document.getElementById('metaLeads').textContent = `${data.record.num_leads || 12} Leads`;
-        document.getElementById('metaShape').textContent = `(12, ${data.record.num_samples || 5000})`;
+        const metaId = document.getElementById('metaId');
+        const metaFs = document.getElementById('metaFs');
+        const metaLeads = document.getElementById('metaLeads');
+        const metaShape = document.getElementById('metaShape');
+        
+        if (metaId) metaId.textContent = data.record.record_id || '--';
+        if (metaFs) metaFs.textContent = `${data.record.sampling_rate || 500} Hz`;
+        if (metaLeads) metaLeads.textContent = `${data.record.num_leads || 12} Leads`;
+        if (metaShape) metaShape.textContent = `(12, ${data.record.num_samples || 5000})`;
     }
     
     // 2. Primary Prediction
     const pred = data.prediction;
     if (pred) {
         const fullTitle = CLASS_FULL_NAMES[pred.class] || pred.class;
-        document.getElementById('primaryPredTitle').textContent = fullTitle;
-        document.getElementById('predProbBadge').textContent = `Confidence: ${(pred.probability * 100).toFixed(1)}%`;
-        document.getElementById('predStatus').textContent = "Inference Complete";
-        document.getElementById('predStatus').className = "badge badge-success";
+        const pTitle = document.getElementById('primaryPredTitle');
+        const pBadge = document.getElementById('predProbBadge');
+        const pStatus = document.getElementById('predStatus');
+        
+        if (pTitle) pTitle.textContent = fullTitle;
+        if (pBadge) pBadge.textContent = `Confidence: ${(pred.probability * 100).toFixed(1)}%`;
+        if (pStatus) {
+            pStatus.textContent = "Inference Complete";
+            pStatus.className = "badge badge-success";
+        }
     }
     
-    // 3. 12-Class Probability Bars
+    // 3. 12-Class Sigmoid Probability Bars
     if (data.probabilities) {
-        renderProbabilityBars(data.probabilities, pred.class);
+        renderProbabilityBars(data.probabilities, pred ? pred.class : null);
     }
     
-    // 4. Real ECG Signal Data
+    // 4. Real Processed 12-Lead ECG Waveform
     if (data.ecg && data.ecg.signals) {
         realEcgData = data.ecg;
         canvasZoomLevel = 1.0;
@@ -605,16 +475,18 @@ function updateUiWithRealBackendResults(data) {
         renderEcgCanvas();
     }
     
-    // 5. 1D Grad-CAM
+    // 5. 1D Grad-CAM Saliency Heatmap (Layer 4)
     if (data.gradcam && data.gradcam.available && data.gradcam.values) {
         realGradCamValues = data.gradcam.values;
-        document.getElementById('gradCamState').textContent = "ON";
+        const stateEl = document.getElementById('gradCamState');
+        if (stateEl) stateEl.textContent = "ON";
     } else {
         realGradCamValues = null;
-        document.getElementById('gradCamState').textContent = "Unavailable";
+        const stateEl = document.getElementById('gradCamState');
+        if (stateEl) stateEl.textContent = "Unavailable";
     }
     
-    // 6. SHAP & Fiducial Features
+    // 6. Fiducials & SHAP Attributions
     if (data.shap) {
         realShapResult = data.shap;
         renderRealShapChart(data.shap);
@@ -626,7 +498,7 @@ function updateUiWithRealBackendResults(data) {
     // 7. Clinical Report
     renderClinicalReport(pred ? pred.class : 'AF', pred ? pred.probability : 0.95);
     
-    // 8. Page 2 Uncertainty
+    // 8. Page 2 Uncertainty Data
     if (data.uncertainty) {
         realUncertaintyResult = data.uncertainty;
         renderMCDropoutChart(data.uncertainty);
@@ -652,7 +524,7 @@ function renderProbabilityBars(probabilities, topClass) {
     
     sorted.forEach(item => {
         const pct = (item.prob * 100).toFixed(1);
-        const isTop = (item.key === topClass);
+        const isTop = (item.key === topClass && item.prob > 0);
         
         const row = document.createElement('div');
         row.className = `prob-item-row ${isTop ? 'active-top-class' : ''}`;
@@ -676,29 +548,21 @@ function renderInitialEmptyState() {
     renderEcgCanvas();
     
     updateFiducialsBar({
-        heart_rate_bpm: 75.0,
-        mean_rr_interval: 0.80,
-        pr_interval: 0.16,
-        qrs_duration: 0.09,
-        qt_interval: 0.38,
-        n_beats_detected: 12
+        heart_rate_bpm: null,
+        mean_rr_interval: null,
+        pr_interval: null,
+        qrs_duration: null,
+        qt_interval: null,
+        n_beats_detected: null
     });
     
-    renderRealShapChart({
-        available: true,
-        target_class: "AF",
-        features: {
-            "mean_rr_interval": -0.42,
-            "heart_rate_bpm": 0.38,
-            "p_wave_amplitude": -0.35,
-            "qrs_amplitude": 0.14,
-            "t_wave_amplitude": 0.08,
-            "pr_interval": -0.28,
-            "qt_interval": 0.12,
-            "qrs_duration": 0.06,
-            "n_beats_detected": 0.22
-        }
-    });
+    const shapUnavail = document.getElementById('shapUnavailableMsg');
+    const shapWrap = document.getElementById('shapChartWrap');
+    if (shapUnavail) {
+        shapUnavail.style.display = 'block';
+        shapUnavail.textContent = 'Upload a WFDB record (.hea + .mat) and click "Analyze ECG" to view fiducial-feature SHAP explanation.';
+    }
+    if (shapWrap) shapWrap.style.display = 'none';
 }
 
 // ==============================================================================
@@ -954,7 +818,7 @@ function updateFiducialsBar(fiducials) {
     setVal('wfQT', (fiducials.qt_interval ? fiducials.qt_interval * 1000 : null), 'ms');
     
     const beatsEl = document.getElementById('wfBeats');
-    if (beatsEl) beatsEl.textContent = fiducials.n_beats_detected || '--';
+    if (beatsEl) beatsEl.textContent = (fiducials.n_beats_detected !== undefined && fiducials.n_beats_detected !== null) ? fiducials.n_beats_detected : '--';
 }
 
 function renderRealShapChart(shapData) {
@@ -967,10 +831,10 @@ function renderRealShapChart(shapData) {
     
     if (badge) badge.textContent = `Target: ${shapData.target_class || '--'}`;
     
-    if (!shapData.available || !shapData.features) {
+    if (!shapData || !shapData.available || !shapData.features) {
         if (unavail) {
             unavail.style.display = 'block';
-            unavail.textContent = shapData.message || 'Fiducial feature SHAP explanation is unavailable for this record.';
+            unavail.textContent = (shapData && shapData.message) ? shapData.message : 'SHAP unavailable for this record.';
         }
         if (wrap) wrap.style.display = 'none';
         return;
@@ -1001,7 +865,7 @@ function renderRealShapChart(shapData) {
         data: {
             labels: labels,
             datasets: [{
-                label: 'SHAP Value (Impact on Prediction)',
+                label: 'SHAP Feature Attribution',
                 data: values,
                 backgroundColor: values.map(v => v >= 0 ? 'rgba(56, 189, 248, 0.85)' : 'rgba(244, 63, 94, 0.85)'),
                 borderColor: values.map(v => v >= 0 ? '#38bdf8' : '#f43f5e'),
@@ -1047,7 +911,7 @@ function updateUncertaintyKpiCards(uncertainty, pred) {
     
     if (valClass && pred) valClass.textContent = pred.class;
     if (valProb && pred) valProb.textContent = `${(pred.probability * 100).toFixed(1)}%`;
-    if (valStd && uncertainty) valStd.textContent = `± ${(uncertainty.predicted_class_uncertainty || 0).toFixed(4)}`;
+    if (valStd && uncertainty) valStd.textContent = `± ${(uncertainty.predicted_class_uncertainty !== undefined && uncertainty.predicted_class_uncertainty !== null ? uncertainty.predicted_class_uncertainty : 0).toFixed(4)}`;
 }
 
 function renderMCDropoutChart(uncertaintyData) {
@@ -1073,7 +937,7 @@ function renderMCDropoutChart(uncertaintyData) {
             labels: classes.map(c => CLASS_FULL_NAMES[c] || c),
             datasets: [
                 {
-                    label: 'Mean Predicted Probability',
+                    label: 'Mean Predicted Probability (30 Passes)',
                     data: means,
                     backgroundColor: 'rgba(56, 189, 248, 0.75)',
                     borderColor: '#38bdf8',
@@ -1164,6 +1028,31 @@ function renderClinicalReport(predictedClass, probability) {
             etiology: "Sinus rhythm with ventricular rate under 60 bpm due to high vagal tone or intrinsic SA node disease.",
             risks: "Syncope, presyncope, or chronotropic incompetence.",
             actions: "Evaluate symptomatic status; review negative chronotropes; consider atropine or pacing if symptomatic."
+        },
+        "PAC": {
+            etiology: "Ectopic atrial pacemaker firing prematurely prior to the expected normal sinus beat.",
+            risks: "Frequent PACs may trigger paroxysmal atrial fibrillation or flutter.",
+            actions: "Assess electrolyte balance, reduce caffeine and adrenergic triggers, evaluate holter monitor if palpitations persist."
+        },
+        "LAD": {
+            etiology: "Frontal QRS axis between -30° and -90°, often reflecting left anterior fascicular block or left ventricular hypertrophy.",
+            risks: "Underlying structural hypertensive heart disease or conduction system degeneration.",
+            actions: "Evaluate blood pressure control and perform transthoracic echocardiogram."
+        },
+        "QAb": {
+            etiology: "Pathological Q-waves (>40ms or >25% R-wave height) reflecting myocardial infarction / transmural electrical silence.",
+            risks: "Myocardial scar, regional wall motion abnormalities, ventricular arrhythmias.",
+            actions: "Correlate with troponin, prior coronary angiograms, and echocardiographic wall motion."
+        },
+        "TAb": {
+            etiology: "T-wave inversion, flattening, or hyperacute configuration signaling myocardial ischemia, strain, or electrolyte shifts.",
+            risks: "Acute coronary syndrome or severe hyper/hypokalemia.",
+            actions: "Obtain urgent serum potassium and serial cardiac biomarkers; compare with baseline ECG."
+        },
+        "NSIVCB": {
+            etiology: "Intraventricular conduction delay (QRS > 110ms) without diagnostic bundle branch morphology.",
+            risks: "Diffuse myocardial fibrosis or cardiomyopathy.",
+            actions: "Clinical correlation with symptoms and cardiac imaging."
         }
     };
     
@@ -1295,9 +1184,9 @@ function generateLocalInformationalAnswer(query, predictedClass, prob) {
         return `<strong>Precautions for ${fullName}:</strong><br>Refer to standard cardiology guidelines. Verify electrolyte balance (K+, Mg2+), review chronotropic and AV-nodal blocking medications, and consider 12-lead Holter monitoring or echocardiography if symptomatic.`;
     }
     if (q.includes('fedavg') || q.includes('fedprox') || q.includes('fedadam') || q.includes('strategy') || q.includes('differ')) {
-        return `<strong>Federated Learning Strategies:</strong><br>&bull; <strong>FedAvg:</strong> Classical parameter averaging across participating nodes.<br>&bull; <strong>FedProx:</strong> Adds a proximal term (&mu;=0.001) to limit local gradient drift under non-IID data.<br>&bull; <strong>FedAdam:</strong> Server-side adaptive momentum optimization for robust convergence across heterogeneous cohorts.`;
+        return `<strong>Federated Learning Strategies:</strong><br>&bull; <strong>FedAvg:</strong> Classical parameter averaging across participating nodes.<br>&bull; <strong>FedProx:</strong> Adds a proximal term (&mu;=0.001) to limit local gradient drift under non-IID data.<br>&bull; <strong>FedAdam:</strong> Server-side adaptive momentum optimization (&beta;1=0.9, &beta;2=0.99, server LR=0.01, &epsilon;=0.001) for robust convergence across heterogeneous cohorts.`;
     }
-    return `For ${fullName}, the universal 12-class federated ResNet-34 model indicates a probability of ${(prob * 100).toFixed(1)}%. Review the 12-lead oscilloscope, fiducial feature SHAP chart, and MC-Dropout uncertainty distributions for comprehensive assessment.`;
+    return `For ${fullName}, the universal 12-class federated ResNet-34 model indicates a probability of ${(prob * 100).toFixed(1)}%. Review the 12-lead oscilloscope, fiducial feature SHAP chart, and MC-Dropout uncertainty distributions for comprehensive assessment. (Note: CardioSight provides research decision support and does not replace qualified clinical consultation).`;
 }
 
 function escapeHtml(text) {
@@ -1309,7 +1198,7 @@ function escapeHtml(text) {
 // ==============================================================================
 const CLIENT_BENCHMARK_DATA = {
     all: {
-        title: "All Cohorts Overview (84,207 Records)",
+        title: "All Cohorts Overview (84,210 Records)",
         f1: { fedadam: 0.812, fedprox: 0.798, fedavg: 0.774 },
         classes: [
             { name: "AF (Atrial Fibrillation)", f1: 0.892, prec: 0.905, rec: 0.880, std: 0.012 },

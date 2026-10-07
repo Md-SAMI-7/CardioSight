@@ -17,6 +17,7 @@
     
     <!-- Stylesheet -->
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/styles.css">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#030712">
 </head>
@@ -331,7 +332,7 @@
                 <div class="federated-grid">
                     <div class="card full-width">
                         <div class="card-header">
-                            <h3><i class="fa-solid fa-hospital"></i> Multi-Center Data Sources (84,207 Total Records)</h3>
+                            <h3><i class="fa-solid fa-hospital"></i> Multi-Center Data Sources (84,210 Total Records)</h3>
                             <span class="badge badge-success">5 Training Cohorts</span>
                         </div>
                         <div class="client-nodes-grid">
@@ -340,6 +341,31 @@
                             <div class="node-card" onclick="showClientF1Table('georgia')"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>Georgia (Emory)</h4><span class="node-loc">Atlanta, USA</span><div class="node-stat"><strong>10,344</strong> records</div><div class="node-tag">Dominant: LAD, PAC, STach</div></div>
                             <div class="node-card" onclick="showClientF1Table('ningbo')"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>Ningbo First</h4><span class="node-loc">Ningbo, China</span><div class="node-stat"><strong>34,905</strong> records</div><div class="node-tag">Dominant: SB, STach, TAb</div></div>
                             <div class="node-card" onclick="showClientF1Table('ptbxl')"><div class="node-icon"><i class="fa-solid fa-hospital"></i></div><h4>PTB-XL Germany</h4><span class="node-loc">Germany</span><div class="node-stat"><strong>21,837</strong> records</div><div class="node-tag">Dominant: LBBB, QAb, NSR</div></div>
+                        </div>
+                    </div>
+
+                    <!-- FL Algorithms Specifications Card -->
+                    <div class="card full-width">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-microchip"></i> Federated Optimization Frameworks</h3>
+                            <span class="badge badge-primary">3 Strategies</span>
+                        </div>
+                        <div class="fl-algorithms-grid">
+                            <div class="fl-algo-card">
+                                <h4><i class="fa-solid fa-code-merge"></i> FedAvg (Baseline)</h4>
+                                <p class="fl-algo-desc">Standard federated averaging aggregating local client weights proportionally to cohort sample size.</p>
+                                <div class="fl-algo-stat"><strong>Global Aggregation:</strong> &theta;<sub>t+1</sub> = &sum; (n<sub>k</sub>/N) &theta;<sub>k</sub></div>
+                            </div>
+                            <div class="fl-algo-card">
+                                <h4><i class="fa-solid fa-shield-halved"></i> FedProx (Proximal Term)</h4>
+                                <p class="fl-algo-desc">Introduces proximal regularization to restrict local model drift under severe non-IID class imbalance.</p>
+                                <div class="fl-algo-stat"><strong>Proximal Parameter:</strong> &mu; = 0.001</div>
+                            </div>
+                            <div class="fl-algo-card">
+                                <h4><i class="fa-solid fa-bolt-lightning"></i> FedAdam (Adaptive Server)</h4>
+                                <p class="fl-algo-desc">Server-side adaptive momentum optimizer with first and second moment estimation for stable convergence.</p>
+                                <div class="fl-algo-stat"><strong>Hyperparameters:</strong> &beta;<sub>1</sub> = 0.9, &beta;<sub>2</sub> = 0.99, &eta; = 0.01, &epsilon; = 10<sup>-3</sup></div>
+                            </div>
                         </div>
                     </div>
 
@@ -457,5 +483,6 @@
         </nav>
     </div>
     <script src="app.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
