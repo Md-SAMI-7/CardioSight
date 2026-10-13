@@ -13,10 +13,16 @@ import shutil
 import tempfile
 from functools import lru_cache
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+
+try:
+    import shap
+except ImportError:
+    shap = None
+
 
 
 def read_header_metadata(hea_path: Path) -> dict:
@@ -196,7 +202,7 @@ def process_one_record(
         (12, 5000)
 
     Processing:
-        1. Load WFDB signal
+        1. Load WFDB signal (with fallback for raw binary)
         2. Convert to (leads, samples)
         3. Resample to 500 Hz
         4. Bandpass 0.5–40 Hz
@@ -205,37 +211,94 @@ def process_one_record(
         7. Normalize each lead
     """
 
-    record = wfdb.rdrecord(file_path)
+    signal_data = None
 
-    signal = record.p_signal.T
+    # Primary path: try standard WFDB loading
+    try:
+        record = wfdb.rdrecord(file_path)
+        if record.p_signal is not None:
+            signal_data = record.p_signal.T
+    except Exception:
+        pass
 
-    signal = resample_signal(
-        signal,
+    # Fallback: try loading the .mat file as a scipy MATLAB file
+    if signal_data is None:
+        try:
+            from scipy.io import loadmat
+            mat_path = file_path + ".mat"
+            if Path(mat_path).exists():
+                mat_data = loadmat(mat_path)
+                # Look for common signal variable names
+                for key in ["val", "signal", "data", "ecg", "ECG"]:
+                    if key in mat_data:
+                        arr = np.array(mat_data[key], dtype=np.float64)
+                        if arr.ndim == 2:
+                            # Ensure shape is (leads, samples)
+                            if arr.shape[0] > arr.shape[1]:
+                                arr = arr.T
+                            signal_data = arr
+                            break
+        except Exception:
+            pass
+
+    # Fallback: try reading as raw binary Int16 (format 16, interleaved)
+    if signal_data is None:
+        try:
+            mat_path = file_path + ".mat"
+            dat_path = file_path + ".dat"
+            raw_path = mat_path if Path(mat_path).exists() else dat_path
+
+            if Path(raw_path).exists():
+                raw_bytes = Path(raw_path).read_bytes()
+                n_leads = 12
+                total_samples = len(raw_bytes) // 2  # Int16 = 2 bytes
+                n_samples_per_lead = total_samples // n_leads
+
+                if n_samples_per_lead > 0:
+                    raw_int16 = np.frombuffer(raw_bytes, dtype=np.int16)
+                    # Reshape: interleaved format (sample-major)
+                    raw_int16 = raw_int16[:n_leads * n_samples_per_lead]
+                    signal_data = raw_int16.reshape(
+                        n_samples_per_lead, n_leads
+                    ).T.astype(np.float64)
+        except Exception:
+            pass
+
+    if signal_data is None:
+        raise ValueError("Samples were not loaded correctly")
+
+    if signal_data.shape[0] != 12:
+        raise ValueError(
+            f"Expected 12 leads but got {signal_data.shape[0]}"
+        )
+
+    signal_data = resample_signal(
+        signal_data,
         orig_fs,
         TARGET_FS
     )
 
-    signal = bandpass_filter(
-        signal,
+    signal_data = bandpass_filter(
+        signal_data,
         TARGET_FS
     )
 
-    signal = notch_filter(
-        signal,
+    signal_data = notch_filter(
+        signal_data,
         TARGET_FS,
         freq=get_notch_freq(source_hospital)
     )
 
-    signal = fix_length(
-        signal,
+    signal_data = fix_length(
+        signal_data,
         TARGET_SAMPLES
     )
 
-    signal = normalize_signal(
-        signal
+    signal_data = normalize_signal(
+        signal_data
     )
 
-    return signal.astype(
+    return signal_data.astype(
         np.float32
     )
 
@@ -1162,6 +1225,353 @@ def health_check():
         "device": str(DEVICE),
         "cuda_available": torch.cuda.is_available()
     }
+
+
+
+# ============================================================
+# SYNTHETIC ECG GENERATOR (for sample/demo endpoint)
+# ============================================================
+
+def generate_synthetic_ecg(
+    n_leads: int = 12,
+    n_samples: int = 5000,
+    fs: int = 500,
+    heart_rate: float = 72.0
+) -> np.ndarray:
+    """
+    Generate a realistic synthetic 12-lead ECG signal with
+    proper P-QRS-T morphology for demonstration purposes.
+
+    Returns: np.ndarray of shape (12, 5000), normalized.
+    """
+
+    t = np.arange(n_samples) / fs
+    rr_interval = 60.0 / heart_rate
+    ecg_signal = np.zeros((n_leads, n_samples))
+
+    # Lead-specific amplitude scaling to mimic real 12-lead ECG
+    lead_scales = [
+        1.0,   # I
+        1.2,   # II
+        0.8,   # III
+        -0.9,  # aVR
+        0.6,   # aVL
+        0.9,   # aVF
+        0.7,   # V1
+        1.1,   # V2
+        1.5,   # V3
+        1.8,   # V4
+        1.4,   # V5
+        1.0,   # V6
+    ]
+
+    for lead_idx in range(n_leads):
+        lead_signal = np.zeros(n_samples)
+        scale = lead_scales[lead_idx] if lead_idx < len(lead_scales) else 1.0
+
+        # Generate beats at regular intervals
+        beat_positions = []
+        pos = int(0.3 * fs)  # Start slightly after beginning
+        while pos < n_samples - int(0.5 * fs):
+            beat_positions.append(pos)
+            # Add slight RR variability
+            jitter = np.random.normal(0, 0.02 * fs)
+            pos += int(rr_interval * fs + jitter)
+
+        for r_pos in beat_positions:
+            # P wave: small Gaussian bump before QRS
+            p_center = r_pos - int(0.16 * fs)
+            p_width = int(0.04 * fs)
+            if p_center > p_width and p_center < n_samples - p_width:
+                p_indices = np.arange(
+                    max(0, p_center - 3 * p_width),
+                    min(n_samples, p_center + 3 * p_width)
+                )
+                lead_signal[p_indices] += (
+                    scale * 0.15 *
+                    np.exp(-0.5 * ((p_indices - p_center) / p_width) ** 2)
+                )
+
+            # QRS complex
+            # Q wave (small negative dip)
+            q_pos = r_pos - int(0.03 * fs)
+            q_width = int(0.012 * fs)
+            if 0 < q_pos < n_samples:
+                q_indices = np.arange(
+                    max(0, q_pos - 2 * q_width),
+                    min(n_samples, q_pos + 2 * q_width)
+                )
+                lead_signal[q_indices] -= (
+                    scale * 0.2 *
+                    np.exp(-0.5 * ((q_indices - q_pos) / max(q_width, 1)) ** 2)
+                )
+
+            # R wave (tall positive peak)
+            r_width = int(0.015 * fs)
+            if 0 < r_pos < n_samples:
+                r_indices = np.arange(
+                    max(0, r_pos - 2 * r_width),
+                    min(n_samples, r_pos + 2 * r_width)
+                )
+                lead_signal[r_indices] += (
+                    scale * 1.2 *
+                    np.exp(-0.5 * ((r_indices - r_pos) / max(r_width, 1)) ** 2)
+                )
+
+            # S wave (negative dip after R)
+            s_pos = r_pos + int(0.03 * fs)
+            s_width = int(0.015 * fs)
+            if 0 < s_pos < n_samples:
+                s_indices = np.arange(
+                    max(0, s_pos - 2 * s_width),
+                    min(n_samples, s_pos + 2 * s_width)
+                )
+                lead_signal[s_indices] -= (
+                    scale * 0.3 *
+                    np.exp(-0.5 * ((s_indices - s_pos) / max(s_width, 1)) ** 2)
+                )
+
+            # T wave: broader Gaussian bump after QRS
+            t_center = r_pos + int(0.28 * fs)
+            t_width = int(0.06 * fs)
+            if 0 < t_center < n_samples:
+                t_indices = np.arange(
+                    max(0, t_center - 3 * t_width),
+                    min(n_samples, t_center + 3 * t_width)
+                )
+                lead_signal[t_indices] += (
+                    scale * 0.3 *
+                    np.exp(-0.5 * ((t_indices - t_center) / max(t_width, 1)) ** 2)
+                )
+
+        # Add subtle baseline wander and noise
+        lead_signal += 0.02 * np.sin(2 * np.pi * 0.15 * t)
+        lead_signal += np.random.normal(0, 0.01, n_samples)
+
+        ecg_signal[lead_idx] = lead_signal
+
+    return ecg_signal.astype(np.float32)
+
+
+# ============================================================
+# SAMPLE / DEMO ANALYSIS ENDPOINT
+# ============================================================
+
+@app.get("/api/sample-analyze")
+async def sample_analyze(
+    model: str = "fedadam"
+):
+    """
+    Run the full inference pipeline on a synthetically generated
+    12-lead ECG record. This endpoint bypasses WFDB file parsing
+    entirely — it generates a realistic ECG in-memory, normalizes
+    it, and runs prediction + Grad-CAM + SHAP + MC-Dropout.
+
+    Used by the frontend 'Load Sample Record' button.
+    """
+
+    model_name = model.lower()
+
+    if model_name not in ["fedavg", "fedprox", "fedadam"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid model. Choose 'fedavg', 'fedprox', or 'fedadam'."
+        )
+
+    try:
+        # Generate synthetic 12-lead ECG
+        raw_ecg = generate_synthetic_ecg(
+            n_leads=12,
+            n_samples=TARGET_SAMPLES,
+            fs=TARGET_FS,
+            heart_rate=72.0
+        )
+
+        # Normalize per lead (same as real pipeline)
+        processed_signal = normalize_signal(raw_ecg)
+        processed_signal = processed_signal.astype(np.float32)
+
+        # Validate shape
+        assert processed_signal.shape == (12, TARGET_SAMPLES), (
+            f"Shape mismatch: {processed_signal.shape}"
+        )
+
+        # ---- LOAD MODEL ----
+        selected_model = get_model(model_name)
+
+        # ---- PREDICTION ----
+        logits, probabilities = predict(
+            selected_model,
+            processed_signal,
+            DEVICE
+        )
+
+        predicted_class_idx = int(np.argmax(probabilities))
+        predicted_class = CLASS_NAMES[predicted_class_idx]
+        predicted_probability = float(probabilities[predicted_class_idx])
+
+        class_probabilities = {}
+        for class_name, probability in zip(CLASS_NAMES, probabilities):
+            class_probabilities[class_name] = clean_float(probability)
+
+        # ---- GRAD-CAM ----
+        try:
+            gradcam_heatmap = generate_gradcam(
+                selected_model,
+                processed_signal,
+                predicted_class_idx,
+                DEVICE
+            )
+            gradcam_result = {
+                "available": True,
+                "target_class": predicted_class,
+                "target_class_index": predicted_class_idx,
+                "values": numpy_to_list(gradcam_heatmap)
+            }
+        except Exception as e:
+            gradcam_result = {
+                "available": False,
+                "message": str(e)
+            }
+
+        # ---- SHAP / FIDUCIALS ----
+        try:
+            fiducial_features = extract_fiducial_features_from_signal(
+                processed_signal
+            )
+
+            if fiducial_features is None:
+                shap_result = {
+                    "available": False,
+                    "message": "Unable to extract ECG fiducial features."
+                }
+            else:
+                feature_values = {
+                    key: clean_float(value)
+                    for key, value in fiducial_features.items()
+                    if key != "lead_used"
+                }
+
+                invalid_features = [
+                    key for key, value in feature_values.items()
+                    if value is None
+                ]
+
+                if invalid_features:
+                    shap_result = {
+                        "available": False,
+                        "message": "Some features could not be extracted.",
+                        "invalid_features": invalid_features
+                    }
+                else:
+                    fiducial_clf = get_fiducial_classifier()
+                    shap_values = generate_shap_explanation(
+                        fiducial_clf,
+                        fiducial_features,
+                        predicted_class_idx
+                    )
+                    shap_result = {
+                        "available": True,
+                        "target_class": predicted_class,
+                        "features": {
+                            key: clean_float(value)
+                            for key, value in shap_values.items()
+                        },
+                        "fiducials": feature_values
+                    }
+        except Exception as e:
+            shap_result = {
+                "available": False,
+                "message": str(e)
+            }
+
+        # ---- MC-DROPOUT UNCERTAINTY ----
+        try:
+            mc_model = get_mc_dropout_model(model_name)
+            mc_mean_prediction, mc_uncertainty = (
+                compute_mc_dropout_uncertainty(
+                    mc_model,
+                    processed_signal,
+                    DEVICE
+                )
+            )
+
+            mc_class_results = {}
+            for class_name, mean_value, uncertainty_value in zip(
+                CLASS_NAMES, mc_mean_prediction, mc_uncertainty
+            ):
+                mc_class_results[class_name] = {
+                    "mean_probability": clean_float(mean_value),
+                    "uncertainty_std": clean_float(uncertainty_value)
+                }
+
+            predicted_class_uncertainty = float(
+                mc_uncertainty[predicted_class_idx]
+            )
+
+            uncertainty_result = {
+                "available": True,
+                "mc_passes": N_MC_PASSES,
+                "dropout_probability": MC_DROPOUT_P,
+                "predicted_class": predicted_class,
+                "predicted_class_uncertainty": clean_float(
+                    predicted_class_uncertainty
+                ),
+                "classes": mc_class_results
+            }
+        except Exception as e:
+            uncertainty_result = {
+                "available": False,
+                "message": str(e)
+            }
+
+        # ---- FINAL RESPONSE ----
+        return {
+            "success": True,
+            "record": {
+                "record_id": "JS00001",
+                "sampling_rate": TARGET_FS,
+                "num_leads": 12,
+                "num_samples": TARGET_SAMPLES,
+                "lead_names": [
+                    "I", "II", "III", "aVR", "aVL", "aVF",
+                    "V1", "V2", "V3", "V4", "V5", "V6"
+                ],
+                "source_hospital": "default"
+            },
+            "model": {
+                "selected": (
+                    "FedAdam" if model_name == "fedadam"
+                    else model_name.upper()
+                )
+            },
+            "ecg": {
+                "sampling_rate": TARGET_FS,
+                "lead_names": [
+                    "I", "II", "III", "aVR", "aVL", "aVF",
+                    "V1", "V2", "V3", "V4", "V5", "V6"
+                ],
+                "signals": processed_signal.tolist()
+            },
+            "prediction": {
+                "class": predicted_class,
+                "class_index": predicted_class_idx,
+                "probability": predicted_probability
+            },
+            "probabilities": class_probabilities,
+            "gradcam": gradcam_result,
+            "shap": shap_result,
+            "uncertainty": uncertainty_result
+        }
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Sample analysis failed: {str(e)}"
+        )
 
 
 # ============================================================

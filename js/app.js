@@ -310,46 +310,71 @@ function updateFileBadges() {
     }
 }
 
-// Generate an authentic sample WFDB record blob pair if user clicks sample button
+// Load and analyze a sample ECG via the backend /api/sample-analyze endpoint
 async function loadSampleWFDBRecord() {
-    showToast('Loading Sample', 'Generating clinical 12-lead record JS00001 (.hea + .mat)...');
+    showToast('Loading Sample', 'Requesting sample ECG analysis from backend...');
     
-    const heaContent = `JS00001 12 500 5000 01-Jan-2020 00:00:00
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 I
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 II
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 III
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 aVR
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 aVL
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 aVF
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 V1
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 V2
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 V3
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 V4
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 V5
-JS00001.mat 16+24 1000/mV 16 0 0 0 0 V6
-#Age: 72
-#Sex: Male
-#Dx: 164889003
-`;
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const predStatus = document.getElementById('predStatus');
     
-    // Create authentic 16-bit binary signal buffer for (12, 5000)
-    const buffer = new ArrayBuffer(12 * 5000 * 2);
-    const int16View = new Int16Array(buffer);
-    for (let i = 0; i < 5000; i++) {
-        for (let ch = 0; ch < 12; ch++) {
-            const t = i / 500.0;
-            let val = Math.sin(2 * Math.PI * 1.3 * t) * 200 + (Math.sin(2 * Math.PI * 0.1 * t) * 50);
-            if (i % 380 === 0) val += 1200; // R-peak
-            int16View[i * 12 + ch] = Math.round(val);
+    if (analyzeBtn) {
+        analyzeBtn.disabled = true;
+        analyzeBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Running Sample Inference...`;
+    }
+    if (predStatus) {
+        predStatus.textContent = "Processing Sample...";
+        predStatus.className = "badge badge-info";
+    }
+    
+    // Set file badges to show the sample record
+    uploadedHeaFile = new File(["sample"], "JS00001.hea", { type: "text/plain" });
+    uploadedMatFile = new File(["sample"], "JS00001.mat", { type: "application/octet-stream" });
+    updateFileBadges();
+    
+    const targetEndpoints = [
+        `http://127.0.0.1:8000/api/sample-analyze?model=${activeModel}`,
+        `/api/sample-analyze?model=${activeModel}`
+    ];
+    
+    let responseData = null;
+    let errorDetail = null;
+    
+    for (const url of targetEndpoints) {
+        try {
+            const res = await fetch(url, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (res.ok) {
+                responseData = await res.json();
+                break;
+            } else {
+                const errJson = await res.json().catch(() => ({ detail: res.statusText }));
+                errorDetail = errJson.detail || res.statusText;
+            }
+        } catch (e) {
+            errorDetail = e.message;
         }
     }
     
-    uploadedHeaFile = new File([heaContent], "JS00001.hea", { type: "text/plain" });
-    uploadedMatFile = new File([buffer], "JS00001.mat", { type: "application/octet-stream" });
+    if (analyzeBtn) {
+        analyzeBtn.disabled = false;
+        analyzeBtn.innerHTML = `<i class="fa-solid fa-bolt"></i> Analyze ECG (POST /api/analyze)`;
+    }
     
-    updateFileBadges();
-    showToast('Record Loaded', 'Sample JS00001 (.hea + .mat) ready. Click Analyze ECG.');
+    if (responseData && responseData.success) {
+        latestBackendResponse = responseData;
+        showToast('Sample Analysis Complete', `Predicted: ${responseData.prediction.class} (${(responseData.prediction.probability * 100).toFixed(1)}%)`);
+        updateUiWithRealBackendResults(responseData);
+    } else {
+        showToast('Sample Error', `Sample analysis failed: ${errorDetail || 'Ensure backend is running on port 8000.'}`);
+        if (predStatus) {
+            predStatus.textContent = "Sample Failed";
+            predStatus.className = "badge badge-danger";
+        }
+    }
 }
+
 
 // ==============================================================================
 // 5. INFERENCE EXECUTION (POST /api/analyze)
