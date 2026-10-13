@@ -1115,13 +1115,43 @@ def clean_float(value):
 # HEALTH CHECK
 # ------------------------------------------------------------
 
-@app.get("/")
-def root():
+FRONTEND_DIR = BASE_DIR / "frontend"
+if not FRONTEND_DIR.exists():
+    FRONTEND_DIR = BASE_DIR
 
-    return {
-        "status": "running",
-        "service": "CardioSight PRO Backend"
-    }
+if (FRONTEND_DIR / "css").exists():
+    app.mount("/css", StaticFiles(directory=str(FRONTEND_DIR / "css")), name="css")
+if (FRONTEND_DIR / "js").exists():
+    app.mount("/js", StaticFiles(directory=str(FRONTEND_DIR / "js")), name="js")
+
+@app.get("/")
+def serve_root_index():
+    index_file = FRONTEND_DIR / "index.html"
+    if index_file.exists():
+        return FileResponse(str(index_file))
+    return {"status": "running", "service": "CardioSight PRO Backend"}
+
+@app.get("/app.js")
+def serve_app_js():
+    f = FRONTEND_DIR / "app.js"
+    if not f.exists():
+        f = BASE_DIR / "app.js"
+    return FileResponse(str(f), media_type="application/javascript")
+
+@app.get("/styles.css")
+def serve_styles_css():
+    f = FRONTEND_DIR / "styles.css"
+    if not f.exists():
+        f = BASE_DIR / "styles.css"
+    return FileResponse(str(f), media_type="text/css")
+
+@app.get("/manifest.json")
+def serve_manifest():
+    f = FRONTEND_DIR / "manifest.json"
+    if not f.exists():
+        f = BASE_DIR / "manifest.json"
+    return FileResponse(str(f), media_type="application/json")
+
 
 
 @app.get("/api/health")
@@ -1631,16 +1661,4 @@ async def analyze_ecg(
         )
 
 
-# ------------------------------------------------------------
-# SERVE FRONTEND STATIC ASSETS
-# ------------------------------------------------------------
-FRONTEND_DIR = BASE_DIR / "frontend"
-if FRONTEND_DIR.exists():
-    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
-    @app.get("/")
-    def serve_frontend_root():
-        index_file = FRONTEND_DIR / "index.html"
-        if index_file.exists():
-            return FileResponse(str(index_file))
-        return {"service": "CardioSight PRO Backend Running"}
