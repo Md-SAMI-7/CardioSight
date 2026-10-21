@@ -1,3 +1,116 @@
+
+// ==============================================================================
+// 1B. 24/7 CLOUD BACKEND MANAGEMENT & DYNAMIC ENDPOINT DISCOVERY
+// ==============================================================================
+let activeBackendBaseUrl = localStorage.getItem("cardiosight_backend_url") || "";
+
+async function getAvailableBackendUrl() {
+    const custom = localStorage.getItem("cardiosight_backend_url");
+    const candidates = [];
+    if (custom) candidates.push(custom.replace(/\/+$/, ''));
+    
+    // Default public cloud endpoints and local dev
+    candidates.push('https://cardiosight-backend.onrender.com');
+    candidates.push('http://127.0.0.1:8000');
+    candidates.push(''); // relative path
+    
+    for (const base of candidates) {
+        try {
+            const testUrl = base ? `${base}/api/health` : `/api/health`;
+            const res = await fetch(testUrl, { signal: AbortSignal.timeout(2200) });
+            if (res.ok) {
+                const data = await res.json();
+                activeBackendBaseUrl = base;
+                return { url: base, data: data };
+            }
+        } catch (e) {
+            // try next candidate
+        }
+    }
+    return null;
+}
+
+function openBackendConfigModal() {
+    const modal = document.getElementById('backendConfigModal');
+    const input = document.getElementById('customBackendUrlInput');
+    const resBox = document.getElementById('backendPingResult');
+    if (input) {
+        input.value = localStorage.getItem("cardiosight_backend_url") || "";
+    }
+    if (resBox) {
+        resBox.style.display = 'none';
+    }
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeBackendConfigModal(e) {
+    const modal = document.getElementById('backendConfigModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+async function testCustomBackendConnection() {
+    const input = document.getElementById('customBackendUrlInput');
+    const resBox = document.getElementById('backendPingResult');
+    if (!input || !resBox) return;
+    
+    const url = input.value.trim().replace(/\/+$/, '');
+    if (!url) {
+        resBox.style.display = 'block';
+        resBox.style.background = 'rgba(239, 68, 68, 0.15)';
+        resBox.style.color = '#f87171';
+        resBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        resBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Please enter a valid URL (e.g., https://your-backend.onrender.com)';
+        return;
+    }
+    
+    resBox.style.display = 'block';
+    resBox.style.background = 'rgba(59, 130, 246, 0.15)';
+    resBox.style.color = '#60a5fa';
+    resBox.style.border = '1px solid rgba(59, 130, 246, 0.3)';
+    resBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Pinging ' + url + '/api/health...';
+    
+    const startTime = performance.now();
+    try {
+        const res = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(4000) });
+        const latency = Math.round(performance.now() - startTime);
+        if (res.ok) {
+            const data = await res.json();
+            resBox.style.background = 'rgba(16, 185, 129, 0.15)';
+            resBox.style.color = '#34d399';
+            resBox.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+            resBox.innerHTML = `<strong><i class="fa-solid fa-circle-check"></i> Connection Verified!</strong> Response time: ${latency}ms | Status: ${data.status} | Device: ${data.device}`;
+        } else {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+    } catch (err) {
+        resBox.style.background = 'rgba(239, 68, 68, 0.15)';
+        resBox.style.color = '#f87171';
+        resBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        resBox.innerHTML = `<strong><i class="fa-solid fa-circle-xmark"></i> Connection Failed:</strong> ${err.message}. Ensure the cloud service is deployed and HTTPS is active.`;
+    }
+}
+
+function saveCustomBackendUrl() {
+    const input = document.getElementById('customBackendUrlInput');
+    if (!input) return;
+    const url = input.value.trim().replace(/\/+$/, '');
+    if (url) {
+        localStorage.setItem("cardiosight_backend_url", url);
+        activeBackendBaseUrl = url;
+        showToast('Cloud Backend Saved', `Default API server set to: ${url}`);
+    } else {
+        localStorage.removeItem("cardiosight_backend_url");
+        activeBackendBaseUrl = "";
+        showToast('Reset to Default', 'Using default cloud discovery & in-browser diagnostic engine.');
+    }
+    closeBackendConfigModal();
+    checkBackendHealth();
+}
+
 /**
  * CardioSight PRO — Universal 12-Class Federated ECG Intelligence & XAI
  * Research Prototype & Clinical Engineering Implementation
@@ -139,35 +252,17 @@ async function checkBackendHealth() {
     const ind = document.getElementById('backendStatusIndicator');
     const label = document.getElementById('backendStatusLabel');
     
-    const tryUrls = [
-        'http://127.0.0.1:8000/api/health',
-        '/api/health'
-    ];
-    
-    let healthy = false;
-    let dev = 'CPU';
-    
-    for (const u of tryUrls) {
-        try {
-            const res = await fetch(u, { signal: AbortSignal.timeout(2000) });
-            if (res.ok) {
-                const data = await res.json();
-                healthy = true;
-                dev = data.cuda_available ? 'CUDA' : 'CPU';
-                break;
-            }
-        } catch (e) {
-            // continue checking
-        }
-    }
+    const backend = await getAvailableBackendUrl();
     
     if (ind && label) {
-        if (healthy) {
+        if (backend) {
             ind.className = 'status-indicator online';
-            label.textContent = `FastAPI Online (${dev})`;
+            const dev = backend.data.cuda_available ? 'CUDA' : 'CPU';
+            const isCloud = backend.url.startsWith('https://');
+            label.textContent = isCloud ? `Cloud Backend Live (${dev})` : `FastAPI Local (${dev})`;
         } else {
-            ind.className = 'status-indicator offline';
-            label.textContent = 'Backend Offline';
+            ind.className = 'status-indicator online';
+            label.textContent = 'Diagnostic Engine Active (24/7)';
         }
     }
 }
@@ -455,10 +550,16 @@ async function runBackendAnalysis() {
     formData.append('model', activeModel);
     formData.append('source_hospital', 'default');
     
-    const targetEndpoints = [
-        'http://127.0.0.1:8000/api/analyze',
-        '/api/analyze'
-    ];
+    const targetEndpoints = [];
+    if (activeBackendBaseUrl) {
+        targetEndpoints.push(`${activeBackendBaseUrl}/api/analyze`);
+    } else {
+        const storedUrl = localStorage.getItem("cardiosight_backend_url");
+        if (storedUrl) targetEndpoints.push(`${storedUrl.replace(/\/+$/, '')}/api/analyze`);
+        targetEndpoints.push('https://cardiosight-backend.onrender.com/api/analyze');
+        targetEndpoints.push('http://127.0.0.1:8000/api/analyze');
+        targetEndpoints.push('/api/analyze');
+    }
     
     let responseData = null;
     let errorDetail = null;

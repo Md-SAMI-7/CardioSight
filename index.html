@@ -16,7 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=2.2.0">
+    <link rel="stylesheet" href="styles.css?v=2.3.0">
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#030712">
@@ -51,8 +51,9 @@
                 <button class="nav-link" id="nav-about" onclick="switchSection('about')"><i class="fa-solid fa-users-gear"></i> 5. About / Project</button>
             </nav>
             <div class="nav-actions">
-                <div class="status-indicator online" id="backendStatusIndicator">
-                    <span class="dot"></span><span class="status-label" id="backendStatusLabel">FastAPI Connected (:8000)</span>
+                <div class="status-indicator online" id="backendStatusIndicator" onclick="openBackendConfigModal()" title="Click to view or configure 24/7 Live Cloud Backend" style="cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                    <span class="dot"></span><span class="status-label" id="backendStatusLabel">Live Engine Active (24/7)</span>
+                    <i class="fa-solid fa-gear" style="font-size: 11px; opacity: 0.8; margin-left: 2px;"></i>
                 </div>
                 <a href="https://github.com/Md-SAMI-7/CardioSight" target="_blank" class="github-btn" title="View Source on GitHub"><i class="fa-brands fa-github"></i></a>
             </div>
@@ -659,6 +660,46 @@
             <button class="b-nav-item" onclick="switchSection('about')"><i class="fa-solid fa-users"></i><span>5. About</span></button>
         </nav>
     </div>
-    <script src="app.js?v=2.2.0"></script>
+    <script src="app.js?v=2.3.0"></script>
+
+    <!-- ============================================================== -->
+    <!-- 24/7 CLOUD BACKEND CONFIGURATION MODAL                         -->
+    <!-- ============================================================== -->
+    <div id="backendConfigModal" class="modal-overlay" style="display:none; position: fixed; inset: 0; background: rgba(3, 7, 18, 0.85); backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center;" onclick="closeBackendConfigModal(event)">
+        <div class="modal-content card" onclick="event.stopPropagation();" style="max-width: 580px; width: 92%; margin: auto; padding: 26px; border-radius: 14px; background: #0f172a; border: 1px solid #1e293b; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.85);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #1e293b; padding-bottom: 12px;">
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 8px; color: #f8fafc; font-size: 17px;"><i class="fa-solid fa-cloud" style="color: #38bdf8;"></i> 24/7 Cloud Backend Configuration</h3>
+                <button type="button" onclick="closeBackendConfigModal()" style="background: none; border: none; color: #94a3b8; font-size: 22px; cursor: pointer; line-height: 1;">&times;</button>
+            </div>
+            
+            <p style="color: #94a3b8; font-size: 13px; line-height: 1.5; margin-bottom: 16px;">
+                CardioSight is engineered to connect to live cloud servers (Render, Hugging Face Spaces, Railway, Fly.io) so anyone worldwide can access full PyTorch ResNet-34 inference without running localhost.
+            </p>
+
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px;">Live Backend API URL (HTTPS):</label>
+                <input type="url" id="customBackendUrlInput" placeholder="https://your-backend.onrender.com" style="width: 100%; padding: 10px 14px; border-radius: 8px; background: #1e293b; border: 1px solid #334155; color: #f8fafc; font-family: monospace; font-size: 13px; outline: none;">
+                <span style="font-size: 11px; color: #64748b; margin-top: 5px; display: block;">Leave blank to use default cloud endpoints or local FastAPI (:8000).</span>
+            </div>
+
+            <div id="backendPingResult" style="margin-bottom: 16px; font-size: 12px; padding: 10px; border-radius: 6px; display: none;"></div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 18px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="testCustomBackendConnection()" style="padding: 8px 16px; border-radius: 6px; cursor: pointer;"><i class="fa-solid fa-plug"></i> Test Connection</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="saveCustomBackendUrl()" style="padding: 8px 16px; border-radius: 6px; cursor: pointer;"><i class="fa-solid fa-floppy-disk"></i> Save & Connect</button>
+            </div>
+
+            <div style="border-top: 1px solid #1e293b; padding-top: 14px;">
+                <h4 style="font-size: 12px; color: #38bdf8; margin: 0 0 6px 0; text-transform: uppercase; letter-spacing: 0.5px;"><i class="fa-solid fa-rocket"></i> Deploy your own 24/7 cloud backend in 2 minutes:</h4>
+                <ol style="margin: 0; padding-left: 20px; font-size: 12px; color: #94a3b8; line-height: 1.6;">
+                    <li>Go to <strong><a href="https://render.com" target="_blank" style="color: #60a5fa; text-decoration: underline;">Render.com</a></strong> &rarr; Click <strong>New +</strong> &rarr; <strong>Web Service</strong>.</li>
+                    <li>Connect your repository <code>Md-SAMI-7/CardioSight</code>.</li>
+                    <li>Render automatically detects the <code>Dockerfile</code> or <code>render.yaml</code> and starts your live FastAPI server.</li>
+                    <li>Paste your free live URL (e.g. <code>https://cardiosight-api.onrender.com</code>) above!</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
