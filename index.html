@@ -16,7 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=2.4.0">
+    <link rel="stylesheet" href="styles.css?v=2.5.0">
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#030712">
@@ -90,22 +90,27 @@
                                 <span class="badge badge-info" id="fileStatusBadge">.hea + .mat Required</span>
                             </div>
                             
-                            <div class="dropzone" id="dropzone">
-                                <input type="file" id="fileInput" multiple accept=".hea,.HEA,.mat,.MAT,.dat,.DAT" style="display:none">
-                                <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
-                                <h4 id="dropzoneTitle">Select or Drop Matching Record Files</h4>
-                                <p id="dropzoneSub">Both Header (.hea) and Signal (.mat) files from the same recording are required</p>
-                                
-                                <div class="file-tags-row" id="uploadedFilesRow">
-                                    <span class="badge badge-outline" id="heaBadge"><i class="fa-solid fa-file-code"></i> Header: None</span>
-                                    <span class="badge badge-outline" id="matBadge"><i class="fa-solid fa-file-lines"></i> Signal: None</span>
+                            <div class="dual-upload-container">
+                                <!-- Box 1: .hea Header File -->
+                                <div class="upload-drop-box" id="heaDropBox" onclick="document.getElementById('heaFileInput').click()">
+                                    <input type="file" id="heaFileInput" accept=".hea,.HEA" style="display:none" onchange="onHeaFileSelected(event)">
+                                    <div class="drop-box-icon"><i class="fa-solid fa-file-code" style="color: #38bdf8;"></i></div>
+                                    <div class="drop-box-text">
+                                        <span class="drop-box-title">1. ECG Header File (.hea)</span>
+                                        <span class="drop-box-sub" id="heaFileNameDisplay">Select or drop .hea metadata file</span>
+                                    </div>
+                                    <span class="drop-box-badge" id="heaFileStatus">Missing</span>
                                 </div>
-                                
-                                <div class="drop-btn-row mt-2" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                                    <span class="browse-btn"><i class="fa-solid fa-folder-open"></i> Browse Files (.hea + .mat)</span>
-                                    <button type="button" class="btn btn-secondary btn-sm" id="loadDemoBtn" onclick="loadDemoRecord(event)" style="border-radius: 6px; padding: 6px 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.35); color: #60a5fa;">
-                                        <i class="fa-solid fa-flask-vial"></i> Load Demo Record (JS00001: AF)
-                                    </button>
+
+                                <!-- Box 2: .mat Signal File -->
+                                <div class="upload-drop-box" id="matDropBox" onclick="document.getElementById('matFileInput').click()">
+                                    <input type="file" id="matFileInput" accept=".mat,.MAT,.dat,.DAT" style="display:none" onchange="onMatFileSelected(event)">
+                                    <div class="drop-box-icon"><i class="fa-solid fa-file-waveform" style="color: #a855f7;"></i></div>
+                                    <div class="drop-box-text">
+                                        <span class="drop-box-title">2. ECG Signal File (.mat)</span>
+                                        <span class="drop-box-sub" id="matFileNameDisplay">Select or drop .mat voltage data file</span>
+                                    </div>
+                                    <span class="drop-box-badge" id="matFileStatus">Missing</span>
                                 </div>
                             </div>
 
@@ -198,42 +203,7 @@
                             </div>
                         </div>
 
-                        <!-- FIDUCIAL FEATURE SHAP BEESWARM EXPLANATION -->
-                        <div class="card shap-summary-card">
-                            <div class="card-header">
-                                <div>
-                                    <h3><i class="fa-solid fa-braille"></i> Fiducial Feature SHAP Beeswarm Plot</h3>
-                                    <p class="card-sub-p">TreeExplainer attributions across 9 electrophysiological features. Each dot represents a sample's impact on model output, color-coded by feature value (Low=Blue, High=Red), with patient value highlighted.</p>
-                                </div>
-                                <span class="badge badge-primary" id="shapTargetBadge">Target: --</span>
-                            </div>
-                            <div id="shapUnavailableMsg" class="alert-box" style="display:none;"></div>
-                            <div class="beeswarm-container" id="shapChartWrap">
-                                <canvas id="shapBeeswarmCanvasStudio" height="320"></canvas>
-                                <div class="beeswarm-legend-bar">
-                                    <span class="legend-text"><i class="fa-solid fa-circle" style="color: #3b82f6;"></i> Low Feature Value</span>
-                                    <div class="beeswarm-gradient-line"></div>
-                                    <span class="legend-text"><i class="fa-solid fa-circle" style="color: #ef4444;"></i> High Feature Value</span>
-                                    <span class="legend-text ml-auto"><span class="patient-point-indicator"></span> Current Patient Record</span>
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- AUTOMATED CLINICAL REASONING DOSSIER -->
-                        <div class="card clinical-report-card">
-                            <div class="card-header">
-                                <div>
-                                    <h3><i class="fa-solid fa-notes-medical"></i> Automated Clinical Reasoning & Precautions</h3>
-                                    <p class="card-sub-p">Dynamically generated 7-section structured clinical evaluation grounded in validated model outputs and electrophysiological fiducials.</p>
-                                </div>
-                                <button class="btn btn-sm btn-outline" onclick="downloadReport()">
-                                    <i class="fa-solid fa-file-arrow-down"></i> Export Report
-                                </button>
-                            </div>
-                            <div class="report-content" id="reportContent">
-                                <p class="text-muted">Upload and analyze a valid ECG recording (.hea + .mat) to generate a structured 7-section clinical evaluation.</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -324,6 +294,22 @@
                     </div>
 
                     <!-- CLINICAL AI ASSISTANT (CHATBOT) -->
+                                        <!-- AUTOMATED 7-SECTION CLINICAL REASONING REPORT (PAGE 2) -->
+                    <div class="card full-width clinical-report-card">
+                        <div class="card-header">
+                            <div>
+                                <h3><i class="fa-solid fa-notes-medical"></i> Automated Clinical Reasoning & Cardiological Synthesis</h3>
+                                <p class="card-sub-p">Dynamic 7-section structured clinical evaluation grounded in model predictions, 12-lead fiducials, and Bayesian epistemic uncertainty.</p>
+                            </div>
+                            <button class="btn btn-sm btn-outline" onclick="downloadReport()">
+                                <i class="fa-solid fa-file-arrow-down"></i> Export Report
+                            </button>
+                        </div>
+                        <div class="report-content" id="reportContent">
+                            <p class="text-muted">Upload and analyze an ECG record on Page 1 (.hea + .mat) to view the complete 7-section clinical reasoning dossier.</p>
+                        </div>
+                    </div>
+
                     <div class="card full-width chatbot-card">
                         <div class="card-header">
                             <div class="header-with-badge">
@@ -660,7 +646,7 @@
             <button class="b-nav-item" onclick="switchSection('about')"><i class="fa-solid fa-users"></i><span>5. About</span></button>
         </nav>
     </div>
-    <script src="app.js?v=2.4.0"></script>
+    <script src="app.js?v=2.5.0"></script>
 
     <!-- ============================================================== -->
     <!-- 24/7 CLOUD BACKEND CONFIGURATION MODAL                         -->

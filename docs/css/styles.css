@@ -1188,3 +1188,88 @@ body {
     padding-top: 0.5rem;
     border-top: 1px solid rgba(55, 65, 81, 0.3);
 }
+
+
+/* ============================================================== */
+/* DUAL UPLOAD BOXES (.hea and .mat)                              */
+/* ============================================================== */
+.dual-upload-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.upload-drop-box {
+    border: 2px dashed rgba(56, 189, 248, 0.35);
+    border-radius: var(--radius-md);
+    background: rgba(15, 23, 42, 0.75);
+    padding: 16px 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    user-select: none;
+    position: relative;
+}
+.upload-drop-box:hover {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.09);
+    transform: translateY(-1px);
+}
+.upload-drop-box.dragover {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.22);
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+}
+.upload-drop-box.file-ready {
+    border-color: #10b981;
+    border-style: solid;
+    background: rgba(16, 185, 129, 0.08);
+}
+.drop-box-icon {
+    font-size: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.drop-box-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.drop-box-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.drop-box-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.drop-box-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    flex-shrink: 0;
+}
+.upload-drop-box.file-ready .drop-box-badge {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    border-color: rgba(16, 185, 129, 0.4);
+}

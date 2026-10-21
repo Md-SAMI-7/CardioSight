@@ -281,35 +281,163 @@ function onModelChange() {
 // 4. FILE INGESTION & CONCORDANCE VALIDATION
 // ==============================================================================
 function setupDropzone() {
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
+    const heaBox = document.getElementById('heaDropBox');
+    const matBox = document.getElementById('matDropBox');
     
-    if (!dropzone || !fileInput) return;
-    
-    dropzone.addEventListener('click', () => fileInput.click());
-    
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files && e.target.files.length > 0) {
-            handleFileSelection(e.target.files);
+    // Box 1: .hea drop events
+    if (heaBox) {
+        heaBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            heaBox.classList.add('dragover');
+        });
+        heaBox.addEventListener('dragleave', () => {
+            heaBox.classList.remove('dragover');
+        });
+        heaBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            heaBox.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                    const f = e.dataTransfer.files[i];
+                    if (f.name.toLowerCase().endsWith('.hea')) {
+                        assignHeaFile(f);
+                    } else if (f.name.toLowerCase().endsWith('.mat') || f.name.toLowerCase().endsWith('.dat')) {
+                        assignMatFile(f);
+                    }
+                }
+            }
+        });
+    }
+
+    // Box 2: .mat drop events
+    if (matBox) {
+        matBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            matBox.classList.add('dragover');
+        });
+        matBox.addEventListener('dragleave', () => {
+            matBox.classList.remove('dragover');
+        });
+        matBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            matBox.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                    const f = e.dataTransfer.files[i];
+                    if (f.name.toLowerCase().endsWith('.mat') || f.name.toLowerCase().endsWith('.dat')) {
+                        assignMatFile(f);
+                    } else if (f.name.toLowerCase().endsWith('.hea')) {
+                        assignHeaFile(f);
+                    }
+                }
+            }
+        });
+    }
+}
+
+function onHeaFileSelected(e) {
+    if (e.target.files && e.target.files.length > 0) {
+        const file = e.target.files[0];
+        if (file.name.toLowerCase().endsWith('.hea')) {
+            assignHeaFile(file);
+        } else {
+            showToast('Invalid File', 'Box 1 requires a .hea header file.');
         }
-    });
-    
-    dropzone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropzone.classList.add('dragover');
-    });
-    
-    dropzone.addEventListener('dragleave', () => {
-        dropzone.classList.remove('dragover');
-    });
-    
-    dropzone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropzone.classList.remove('dragover');
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            handleFileSelection(e.dataTransfer.files);
+    }
+}
+
+function onMatFileSelected(e) {
+    if (e.target.files && e.target.files.length > 0) {
+        const file = e.target.files[0];
+        if (file.name.toLowerCase().endsWith('.mat') || file.name.toLowerCase().endsWith('.dat')) {
+            assignMatFile(file);
+        } else {
+            showToast('Invalid File', 'Box 2 requires a .mat signal file.');
         }
-    });
+    }
+}
+
+function assignHeaFile(file) {
+    uploadedHeaFile = file;
+    const nameEl = document.getElementById('heaFileNameDisplay');
+    const statusEl = document.getElementById('heaFileStatus');
+    const boxEl = document.getElementById('heaDropBox');
+    
+    if (nameEl) nameEl.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    if (statusEl) {
+        statusEl.textContent = 'Selected';
+        statusEl.className = 'drop-box-badge';
+    }
+    if (boxEl) boxEl.classList.add('file-ready');
+    
+    validateFilePair();
+}
+
+function assignMatFile(file) {
+    uploadedMatFile = file;
+    const nameEl = document.getElementById('matFileNameDisplay');
+    const statusEl = document.getElementById('matFileStatus');
+    const boxEl = document.getElementById('matDropBox');
+    
+    if (nameEl) nameEl.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    if (statusEl) {
+        statusEl.textContent = 'Selected';
+        statusEl.className = 'drop-box-badge';
+    }
+    if (boxEl) boxEl.classList.add('file-ready');
+    
+    validateFilePair();
+}
+
+function validateFilePair() {
+    const valBox = document.getElementById('uploadValidationBox');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const heaStatus = document.getElementById('heaFileStatus');
+    const matStatus = document.getElementById('matFileStatus');
+    
+    // Clear previous results immediately upon any file change
+    resetAnalysisState();
+    
+    if (!uploadedHeaFile && !uploadedMatFile) {
+        if (valBox) valBox.style.display = 'none';
+        if (analyzeBtn) analyzeBtn.disabled = true;
+        return;
+    }
+    
+    if (!uploadedHeaFile || !uploadedMatFile) {
+        if (valBox) {
+            valBox.style.display = 'block';
+            valBox.className = 'alert-box alert-info';
+            valBox.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${!uploadedHeaFile ? 'Select Box 1 (.hea header file) to continue.' : 'Select Box 2 (.mat signal file) to continue.'}`;
+        }
+        if (analyzeBtn) analyzeBtn.disabled = true;
+        return;
+    }
+    
+    const heaStem = getFileStem(uploadedHeaFile.name);
+    const matStem = getFileStem(uploadedMatFile.name);
+    
+    if (heaStem !== matStem) {
+        if (valBox) {
+            valBox.style.display = 'block';
+            valBox.className = 'alert-box alert-error';
+            valBox.innerHTML = `<strong><i class="fa-solid fa-triangle-exclamation"></i> Record Mismatch:</strong> "${uploadedHeaFile.name}" and "${uploadedMatFile.name}" belong to different recordings. Both must share the same basename.`;
+        }
+        if (heaStatus) heaStatus.textContent = 'Mismatch';
+        if (matStatus) matStatus.textContent = 'Mismatch';
+        if (analyzeBtn) analyzeBtn.disabled = true;
+        showToast('Record ID Mismatch', `Cannot pair "${uploadedHeaFile.name}" with "${uploadedMatFile.name}".`);
+    } else {
+        if (valBox) {
+            valBox.style.display = 'block';
+            valBox.className = 'alert-box alert-success';
+            valBox.innerHTML = `<strong><i class="fa-solid fa-circle-check"></i> Concordant Pair Ready:</strong> Record <code>${heaStem}</code> (${uploadedHeaFile.name} + ${uploadedMatFile.name}). Ready for analysis.`;
+        }
+        if (heaStatus) heaStatus.textContent = 'Ready';
+        if (matStatus) matStatus.textContent = 'Ready';
+        if (analyzeBtn) analyzeBtn.disabled = false;
+        showToast('Pair Ready', `Record ${heaStem} is ready for analysis.`);
+    }
 }
 
 function getFileStem(filename) {
