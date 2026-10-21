@@ -10,7 +10,7 @@ async function getAvailableBackendUrl() {
     if (custom) candidates.push(custom.replace(/\/+$/, ''));
     
     // Default public cloud endpoints and local dev
-    candidates.push('https://cardiosight-backend.onrender.com');
+    candidates.push('https://cardiosight-7w9t.onrender.com');
     candidates.push('http://127.0.0.1:8000');
     candidates.push(''); // relative path
     
@@ -556,7 +556,7 @@ async function runBackendAnalysis() {
     } else {
         const storedUrl = localStorage.getItem("cardiosight_backend_url");
         if (storedUrl) targetEndpoints.push(`${storedUrl.replace(/\/+$/, '')}/api/analyze`);
-        targetEndpoints.push('https://cardiosight-backend.onrender.com/api/analyze');
+        targetEndpoints.push('https://cardiosight-7w9t.onrender.com/api/analyze');
         targetEndpoints.push('http://127.0.0.1:8000/api/analyze');
         targetEndpoints.push('/api/analyze');
     }
