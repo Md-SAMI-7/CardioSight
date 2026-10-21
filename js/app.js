@@ -1,77 +1,66 @@
 /**
- * CardioSight PRO - Universal 12-Class Federated 12-Lead ECG Intelligence
- * Production Frontend Engine integrating FastAPI Backend (/api/analyze)
- * Real ECG Oscilloscope, 1D Grad-CAM, NeuroKit2 Fiducials, RF SHAP, and MC-Dropout Uncertainty
+ * CardioSight PRO — Universal 12-Class Federated ECG Intelligence & XAI
+ * Research Prototype & Clinical Engineering Implementation
  */
 
 // ==============================================================================
-// 1. CONSTANTS & SYSTEM CONFIGURATION
+// 1. GLOBAL STATE & CONSTANTS
 // ==============================================================================
-const CLASS_NAMES = [
-    "AF", "IAVB", "LAD", "LBBB", "NSIVCB", "NSR", "PAC", "QAb", "RBBB", "SB", "STach", "TAb"
-];
-
-const CLASS_FULL_NAMES = {
-    "AF": "Atrial Fibrillation (AF)",
-    "IAVB": "1st-Degree AV Block (IAVB)",
-    "LAD": "Left Axis Deviation (LAD)",
-    "LBBB": "Left Bundle Branch Block (LBBB)",
-    "NSIVCB": "Non-Specific Intraventricular Conduction Block",
-    "NSR": "Normal Sinus Rhythm (NSR)",
-    "PAC": "Premature Atrial Contraction (PAC)",
-    "QAb": "Abnormal Pathological Q-Wave",
-    "RBBB": "Right Bundle Branch Block (RBBB)",
-    "SB": "Sinus Bradycardia (SB)",
-    "STach": "Sinus Tachycardia (STach)",
-    "TAb": "T-Wave Abnormality (TAb)"
-};
-
-const CLASS_COLORS = {
-    "AF": "#f43f5e",
-    "IAVB": "#06b6d4",
-    "LAD": "#a855f7",
-    "LBBB": "#f59e0b",
-    "NSIVCB": "#64748b",
-    "NSR": "#10b981",
-    "PAC": "#eab308",
-    "QAb": "#f97316",
-    "RBBB": "#8b5cf6",
-    "SB": "#6366f1",
-    "STach": "#ec4899",
-    "TAb": "#14b8a6"
-};
-
-const LEAD_NAMES_STANDARD = [
-    "I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"
-];
-
-// Application Live State
 let activeSection = 'studio';
 let activeModel = 'fedadam';
 let activeLead = 'II';
 let gradCamEnabled = true;
+let canvasZoomLevel = 1.0;
+let canvasOffsetX = 0;
 
 let uploadedHeaFile = null;
 let uploadedMatFile = null;
 
-// Backend Received Data (NO STATIC MOCK DATA)
 let latestBackendResponse = null;
-let realEcgData = null; // { sampling_rate: 500, lead_names: [...], signals: [[...]] }
-let realGradCamValues = null; // 1D array length 5000
+let realEcgData = null;
+let realGradCamValues = null;
 let realShapResult = null;
 let realUncertaintyResult = null;
 
 // Chart Instances
-let shapChartStudio = null;
-let mcDropoutChart = null;
+let mcDropoutChartInstance = null;
 let convergenceChartInstance = null;
-let f1RadarChartInstance = null;
+let radarChartInstance = null;
 
-// Canvas & Viewport State
-let canvasZoomLevel = 1.0;
-let canvasOffsetX = 0;
-let isPanning = false;
-let panStartX = 0;
+const CLASS_NAMES = [
+    "AF", "IAVB", "LAD", "LBBB", "NSIVCB", "NSR",
+    "PAC", "QAb", "RBBB", "SB", "STach", "TAb"
+];
+
+const CLASS_FULL_NAMES = {
+    "AF": "Atrial Fibrillation",
+    "IAVB": "First-Degree AV Block",
+    "LAD": "Left Axis Deviation",
+    "LBBB": "Left Bundle Branch Block",
+    "NSIVCB": "Nonspecific Intraventricular Conduction Delay",
+    "NSR": "Normal Sinus Rhythm",
+    "PAC": "Premature Atrial Contraction",
+    "QAb": "Abnormal Q-Wave (Myocardial Infarction)",
+    "RBBB": "Right Bundle Branch Block",
+    "SB": "Sinus Bradycardia",
+    "STach": "Sinus Tachycardia",
+    "TAb": "T-Wave Abnormality"
+};
+
+const CLASS_COLORS = {
+    "AF": "#ef4444",
+    "IAVB": "#f97316",
+    "LAD": "#f59e0b",
+    "LBBB": "#eab308",
+    "NSIVCB": "#84cc16",
+    "NSR": "#10b981",
+    "PAC": "#06b6d4",
+    "QAb": "#3b82f6",
+    "RBBB": "#6366f1",
+    "SB": "#8b5cf6",
+    "STach": "#ec4899",
+    "TAb": "#f43f5e"
+};
 
 // ==============================================================================
 // 2. INITIALIZATION
@@ -85,35 +74,47 @@ function initApp() {
     setupCanvasInteractions();
     checkBackendHealth();
     renderInitialEmptyState();
-    renderClientF1Table('all');
+    initPathologyGuideGrid();
     initConvergenceChart();
     initRadarChart();
-    initPathologyGuideGrid();
+    showClientF1Table('all');
 }
 
+// ==============================================================================
+// 3. NAVIGATION & UI CONTROLS
+// ==============================================================================
 function switchSection(sectionId) {
     activeSection = sectionId;
     
     document.querySelectorAll('.app-section').forEach(sec => sec.classList.remove('active'));
-    document.querySelectorAll('.nav-link').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.b-nav-item').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.desktop-nav .nav-link').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.mobile-bottom-nav .b-nav-item').forEach(btn => btn.classList.remove('active'));
     
-    const targetSec = document.getElementById(`${sectionId}-section`);
-    if (targetSec) targetSec.classList.add('active');
+    const targetSection = document.getElementById(`${sectionId}-section`);
+    const desktopBtn = document.getElementById(`nav-${sectionId}`);
     
-    const navBtn = document.getElementById(`nav-${sectionId}`);
-    if (navBtn) navBtn.classList.add('active');
+    if (targetSection) targetSection.classList.add('active');
+    if (desktopBtn) desktopBtn.classList.add('active');
     
-    // Trigger canvas or chart resize on tab switch
+    // Update mobile navigation items
+    const mobileIndices = { 'studio': 0, 'xai': 1, 'federated': 2, 'guide': 3, 'about': 4 };
+    const mobileBtns = document.querySelectorAll('.mobile-bottom-nav .b-nav-item');
+    if (mobileBtns[mobileIndices[sectionId]]) {
+        mobileBtns[mobileIndices[sectionId]].classList.add('active');
+    }
+    
+    // Re-render canvases if switching to visible tabs
     if (sectionId === 'studio') {
-        setTimeout(renderEcgCanvas, 50);
+        setTimeout(() => {
+            renderEcgCanvas();
+            if (realShapResult) renderShapBeeswarm('shapBeeswarmCanvasStudio', realShapResult);
+        }, 80);
     } else if (sectionId === 'xai') {
-        if (latestBackendResponse && latestBackendResponse.uncertainty && latestBackendResponse.uncertainty.available) {
-            setTimeout(() => {
-                renderMCDropoutChart(latestBackendResponse.uncertainty);
-                updateUncertaintyKpiCards(latestBackendResponse.uncertainty, latestBackendResponse.prediction);
-            }, 50);
-        }
+        setTimeout(() => {
+            renderXaiGradCamCanvas();
+            if (realShapResult) renderShapBeeswarm('xaiShapBeeswarmCanvas', realShapResult);
+            if (realUncertaintyResult) renderMCDropoutChart(realUncertaintyResult);
+        }, 80);
     }
 }
 
@@ -121,75 +122,81 @@ function showToast(title, msg) {
     const toast = document.getElementById('toastNotification');
     const tTitle = document.getElementById('toastTitle');
     const tMsg = document.getElementById('toastMsg');
+    
     if (!toast || !tTitle || !tMsg) return;
     
     tTitle.textContent = title;
     tMsg.textContent = msg;
-    toast.classList.add('show');
     
-    setTimeout(() => {
+    toast.classList.add('show');
+    clearTimeout(toast.dismissTimeout);
+    toast.dismissTimeout = setTimeout(() => {
         toast.classList.remove('show');
-    }, 3800);
+    }, 4500);
 }
 
-// ==============================================================================
-// 3. BACKEND CONNECTIVITY & HEALTH
-// ==============================================================================
 async function checkBackendHealth() {
-    const statusLabel = document.getElementById('backendStatusLabel');
-    const statusIndicator = document.getElementById('backendStatusIndicator');
+    const ind = document.getElementById('backendStatusIndicator');
+    const label = document.getElementById('backendStatusLabel');
     
     const tryUrls = [
         'http://127.0.0.1:8000/api/health',
         '/api/health'
     ];
     
-    for (const url of tryUrls) {
+    let healthy = false;
+    let dev = 'CPU';
+    
+    for (const u of tryUrls) {
         try {
-            const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(2000) });
+            const res = await fetch(u, { signal: AbortSignal.timeout(2000) });
             if (res.ok) {
                 const data = await res.json();
-                if (statusLabel) statusLabel.textContent = `FastAPI Online (${data.device || 'CPU'})`;
-                if (statusIndicator) {
-                    statusIndicator.classList.remove('offline');
-                    statusIndicator.classList.add('online');
-                }
-                return;
+                healthy = true;
+                dev = data.cuda_available ? 'CUDA' : 'CPU';
+                break;
             }
         } catch (e) {
             // continue checking
         }
     }
     
-    if (statusLabel) statusLabel.textContent = 'FastAPI Ready (:8000)';
-    if (statusIndicator) {
-        statusIndicator.classList.add('online');
-        statusIndicator.classList.remove('offline');
+    if (ind && label) {
+        if (healthy) {
+            ind.className = 'status-indicator online';
+            label.textContent = `FastAPI Online (${dev})`;
+        } else {
+            ind.className = 'status-indicator offline';
+            label.textContent = 'Backend Offline';
+        }
     }
 }
 
-// ==============================================================================
-// 4. PAGE 1: FILE INGESTION & VALIDATION (.hea + .mat matching stems)
-// ==============================================================================
 function onModelChange() {
-    const el = document.getElementById('selectedOptimizer');
-    if (el) {
-        activeModel = el.value;
+    const sel = document.getElementById('selectedOptimizer');
+    if (sel) {
+        activeModel = sel.value;
         const tag = document.getElementById('activeModelTag');
-        if (tag) tag.textContent = `Model: ${el.options[el.selectedIndex].text.split(' ')[0]}`;
-        showToast('Model Changed', `Selected ${el.options[el.selectedIndex].text}`);
+        if (tag) tag.textContent = `Model: ${sel.options[sel.selectedIndex].text.split(' ')[0]}`;
+        showToast('Model Selected', `Inference active model switched to ${activeModel.toUpperCase()}.`);
     }
 }
 
+// ==============================================================================
+// 4. FILE INGESTION & CONCORDANCE VALIDATION
+// ==============================================================================
 function setupDropzone() {
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
+    
     if (!dropzone || !fileInput) return;
     
     dropzone.addEventListener('click', () => fileInput.click());
     
     fileInput.addEventListener('change', (e) => {
-        handleFileSelection(e.target.files);
+        if (e.target.files && e.target.files.length > 0) {
+            handleFileSelection(e.target.files);
+        }
     });
     
     dropzone.addEventListener('dragover', (e) => {
@@ -218,6 +225,9 @@ function getFileStem(filename) {
 function handleFileSelection(files) {
     if (!files || files.length === 0) return;
     
+    // Clear previous patient results immediately upon new file selection
+    resetAnalysisState();
+    
     let candidateHea = uploadedHeaFile;
     let candidateMat = uploadedMatFile;
     
@@ -231,38 +241,71 @@ function handleFileSelection(files) {
         }
     }
     
-    // Verify matching record ID / stems if both are present
+    const valBox = document.getElementById('uploadValidationBox');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    
+    // Validate matching stem when both files are selected
     if (candidateHea && candidateMat) {
         const heaStem = getFileStem(candidateHea.name);
         const matStem = getFileStem(candidateMat.name);
         
         if (heaStem !== matStem) {
-            showToast('Mismatched Record Files', `Header "${candidateHea.name}" and signal "${candidateMat.name}" do not match! Both must share the same record stem.`);
+            showToast('Mismatched Record Files', `Header "${candidateHea.name}" and signal "${candidateMat.name}" belong to different records.`);
             uploadedHeaFile = candidateHea;
             uploadedMatFile = null;
             updateFileBadges();
+            if (valBox) {
+                valBox.style.display = 'block';
+                valBox.className = 'alert-box alert-error';
+                valBox.innerHTML = `<strong><i class="fa-solid fa-triangle-exclamation"></i> Record Mismatch Rejected:</strong> "${candidateHea.name}" and "${candidateMat.name}" have different basenames. A concordant pair is required.`;
+            }
+            if (analyzeBtn) analyzeBtn.disabled = true;
             return;
         }
+        
+        // Browser-side header text inspection
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            const text = evt.target.result;
+            const lines = text.split('\n').filter(l => l.trim().length > 0 && !l.startsWith('#'));
+            const firstLine = lines[0] || '';
+            const parts = firstLine.trim().split(/\s+/);
+            const numLeads = parts.length > 1 ? parseInt(parts[1]) : 0;
+            const fs = parts.length > 2 ? parseInt(parts[2]) : 0;
+            
+            if (numLeads !== 12) {
+                if (valBox) {
+                    valBox.style.display = 'block';
+                    valBox.className = 'alert-box alert-error';
+                    valBox.innerHTML = `<strong><i class="fa-solid fa-circle-exclamation"></i> Lead Count Incompatibility:</strong> Header specifies ${numLeads} leads; model requires 12 standard leads.`;
+                }
+                if (analyzeBtn) analyzeBtn.disabled = true;
+                return;
+            }
+            
+            // Concordant valid pair verified
+            if (valBox) {
+                valBox.style.display = 'block';
+                valBox.className = 'alert-box alert-success';
+                valBox.innerHTML = `<strong><i class="fa-solid fa-circle-check"></i> Concordant 12-Lead Pair:</strong> Record <code>${heaStem}</code> (${fs || 500} Hz, 12 Leads) ready for inference.`;
+            }
+            if (analyzeBtn) analyzeBtn.disabled = false;
+        };
+        reader.readAsText(candidateHea);
+    } else {
+        if (valBox) {
+            valBox.style.display = 'block';
+            valBox.className = 'alert-box alert-info';
+            valBox.innerHTML = candidateHea 
+                ? `<strong>Header loaded:</strong> "${candidateHea.name}". Please also select the matching <code>.mat</code> signal file.`
+                : `<strong>Signal loaded:</strong> "${candidateMat.name}". Please also select the matching <code>.hea</code> header file.`;
+        }
+        if (analyzeBtn) analyzeBtn.disabled = true;
     }
     
     uploadedHeaFile = candidateHea;
     uploadedMatFile = candidateMat;
-    
     updateFileBadges();
-    
-    if (uploadedHeaFile && uploadedMatFile) {
-        const stem = getFileStem(uploadedHeaFile.name);
-        showToast('WFDB Record Ready', `Record "${stem}" (.hea + .mat) verified. Click "Analyze ECG" to run inference.`);
-        const pStatus = document.getElementById('predStatus');
-        if (pStatus) {
-            pStatus.textContent = "Ready for Analysis";
-            pStatus.className = "badge badge-primary";
-        }
-    } else if (uploadedHeaFile) {
-        showToast('Header Loaded', `Header "${uploadedHeaFile.name}" selected. Please also select matching .mat signal file.`);
-    } else if (uploadedMatFile) {
-        showToast('Signal Loaded', `Signal "${uploadedMatFile.name}" selected. Please also select matching .hea header file.`);
-    }
 }
 
 function updateFileBadges() {
@@ -301,7 +344,7 @@ function updateFileBadges() {
     
     if (fileStatusBadge) {
         if (uploadedHeaFile && uploadedMatFile) {
-            fileStatusBadge.textContent = "Ready for Inference";
+            fileStatusBadge.textContent = "Pair Ready for Analysis";
             fileStatusBadge.className = "badge badge-success";
         } else {
             fileStatusBadge.textContent = ".hea + .mat Required";
@@ -310,71 +353,73 @@ function updateFileBadges() {
     }
 }
 
-// Load and analyze a sample ECG via the backend /api/sample-analyze endpoint
-async function loadSampleWFDBRecord() {
-    showToast('Loading Sample', 'Requesting sample ECG analysis from backend...');
+function resetAnalysisState() {
+    latestBackendResponse = null;
+    realEcgData = null;
+    realGradCamValues = null;
+    realShapResult = null;
+    realUncertaintyResult = null;
     
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const predStatus = document.getElementById('predStatus');
-    
-    if (analyzeBtn) {
-        analyzeBtn.disabled = true;
-        analyzeBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Running Sample Inference...`;
+    // Clear Oscilloscope
+    const canvas = document.getElementById('ecgCanvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawMedicalEcgGrid(ctx, canvas.width, canvas.height);
     }
-    if (predStatus) {
-        predStatus.textContent = "Processing Sample...";
-        predStatus.className = "badge badge-info";
+    
+    // Reset Primary prediction
+    const pTitle = document.getElementById('primaryPredTitle');
+    if (pTitle) pTitle.textContent = '--';
+    const pBadge = document.getElementById('predProbBadge');
+    if (pBadge) pBadge.textContent = 'Prob: --%';
+    const pStatus = document.getElementById('predStatus');
+    if (pStatus) {
+        pStatus.textContent = 'Awaiting Inference';
+        pStatus.className = 'badge badge-info';
     }
     
-    // Set file badges to show the sample record
-    uploadedHeaFile = new File(["sample"], "JS00001.hea", { type: "text/plain" });
-    uploadedMatFile = new File(["sample"], "JS00001.mat", { type: "application/octet-stream" });
-    updateFileBadges();
+    // Reset probability bars
+    const pBars = document.getElementById('probabilityBarsList');
+    if (pBars) pBars.innerHTML = '';
     
-    const targetEndpoints = [
-        `http://127.0.0.1:8000/api/sample-analyze?model=${activeModel}`,
-        `/api/sample-analyze?model=${activeModel}`
-    ];
+    // Reset fiducials
+    const ids = ['wfHR', 'wfRR', 'wfPR', 'wfQRS', 'wfQT', 'wfBeats'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '--';
+    });
     
-    let responseData = null;
-    let errorDetail = null;
-    
-    for (const url of targetEndpoints) {
-        try {
-            const res = await fetch(url, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' }
-            });
-            if (res.ok) {
-                responseData = await res.json();
-                break;
-            } else {
-                const errJson = await res.json().catch(() => ({ detail: res.statusText }));
-                errorDetail = errJson.detail || res.statusText;
-            }
-        } catch (e) {
-            errorDetail = e.message;
+    // Clear SHAP beeswarm canvases
+    ['shapBeeswarmCanvasStudio', 'xaiShapBeeswarmCanvas'].forEach(cId => {
+        const c = document.getElementById(cId);
+        if (c) {
+            const ctx = c.getContext('2d');
+            ctx.clearRect(0, 0, c.width, c.height);
         }
+    });
+    
+    // Clear Page 2 Grad-CAM canvas
+    const xaiCam = document.getElementById('xaiGradCamCanvas');
+    if (xaiCam) {
+        const ctx = xaiCam.getContext('2d');
+        ctx.clearRect(0, 0, xaiCam.width, xaiCam.height);
     }
     
-    if (analyzeBtn) {
-        analyzeBtn.disabled = false;
-        analyzeBtn.innerHTML = `<i class="fa-solid fa-bolt"></i> Analyze ECG (POST /api/analyze)`;
+    // Reset Report Content
+    const rep = document.getElementById('reportContent');
+    if (rep) {
+        rep.innerHTML = '<p class="text-muted">Upload and analyze a valid ECG recording (.hea + .mat) to generate a structured 7-section clinical evaluation.</p>';
     }
     
-    if (responseData && responseData.success) {
-        latestBackendResponse = responseData;
-        showToast('Sample Analysis Complete', `Predicted: ${responseData.prediction.class} (${(responseData.prediction.probability * 100).toFixed(1)}%)`);
-        updateUiWithRealBackendResults(responseData);
-    } else {
-        showToast('Sample Error', `Sample analysis failed: ${errorDetail || 'Ensure backend is running on port 8000.'}`);
-        if (predStatus) {
-            predStatus.textContent = "Sample Failed";
-            predStatus.className = "badge badge-danger";
-        }
-    }
+    // Reset Uncertainty KPI cards
+    const uClass = document.getElementById('valPredClass');
+    if (uClass) uClass.textContent = '--';
+    const uProb = document.getElementById('valPredProb');
+    if (uProb) uProb.textContent = '--%';
+    const uStd = document.getElementById('valPredStd');
+    if (uStd) uStd.textContent = '--';
 }
-
 
 // ==============================================================================
 // 5. INFERENCE EXECUTION (POST /api/analyze)
@@ -498,6 +543,7 @@ function updateUiWithRealBackendResults(data) {
         canvasZoomLevel = 1.0;
         canvasOffsetX = 0;
         renderEcgCanvas();
+        renderXaiGradCamCanvas();
     }
     
     // 5. 1D Grad-CAM Saliency Heatmap (Layer 4)
@@ -505,23 +551,31 @@ function updateUiWithRealBackendResults(data) {
         realGradCamValues = data.gradcam.values;
         const stateEl = document.getElementById('gradCamState');
         if (stateEl) stateEl.textContent = "ON";
+        const xaiBadge = document.getElementById('xaiGradCamBadge');
+        if (xaiBadge) xaiBadge.textContent = `Target: ${pred ? pred.class : 'Layer 4'}`;
     } else {
         realGradCamValues = null;
         const stateEl = document.getElementById('gradCamState');
         if (stateEl) stateEl.textContent = "Unavailable";
     }
     
-    // 6. Fiducials & SHAP Attributions
+    // 6. Fiducials & SHAP Beeswarm Attributions
     if (data.shap) {
         realShapResult = data.shap;
-        renderRealShapChart(data.shap);
+        renderShapBeeswarm('shapBeeswarmCanvasStudio', data.shap);
+        renderShapBeeswarm('xaiShapBeeswarmCanvas', data.shap);
+        const shapBadge = document.getElementById('shapTargetBadge');
+        if (shapBadge) shapBadge.textContent = `Target: ${data.shap.target_class || (pred ? pred.class : '--')}`;
+        const xaiShapBadge = document.getElementById('xaiShapBadge');
+        if (xaiShapBadge) xaiShapBadge.textContent = `Target: ${data.shap.target_class || (pred ? pred.class : '--')}`;
+        
         if (data.shap.fiducials) {
             updateFiducialsBar(data.shap.fiducials);
         }
     }
     
     // 7. Clinical Report
-    renderClinicalReport(pred ? pred.class : 'AF', pred ? pred.probability : 0.95);
+    renderClinicalReport(data);
     
     // 8. Page 2 Uncertainty Data
     if (data.uncertainty) {
@@ -548,57 +602,44 @@ function renderProbabilityBars(probabilities, topClass) {
     })).sort((a, b) => b.prob - a.prob);
     
     sorted.forEach(item => {
+        const isTop = item.key === topClass;
         const pct = (item.prob * 100).toFixed(1);
-        const isTop = (item.key === topClass && item.prob > 0);
         
         const row = document.createElement('div');
-        row.className = `prob-item-row ${isTop ? 'active-top-class' : ''}`;
+        row.className = `prob-row ${isTop ? 'highlight' : ''}`;
         row.innerHTML = `
-            <div class="prob-label-wrap">
-                <span class="prob-class-name">${item.name}</span>
-                <span class="prob-value" style="color:${item.color}">${pct}%</span>
+            <div class="prob-header">
+                <span class="prob-code">${item.key}</span>
+                <span class="prob-name">${item.name}</span>
+                <span class="prob-val">${pct}%</span>
             </div>
-            <div class="progress-track">
-                <div class="progress-fill" style="width: ${pct}%; background-color: ${item.color};"></div>
+            <div class="prob-track">
+                <div class="prob-fill" style="width: ${pct}%; background-color: ${item.color};"></div>
             </div>
         `;
         container.appendChild(row);
     });
 }
 
+// ==============================================================================
+// 8. 12-LEAD OSCILLOSCOPE & 1D GRAD-CAM HEATMAP (CANVAS)
+// ==============================================================================
 function renderInitialEmptyState() {
-    const emptyProb = {};
-    CLASS_NAMES.forEach(c => emptyProb[c] = 0.0);
-    renderProbabilityBars(emptyProb, null);
-    renderEcgCanvas();
-    
-    updateFiducialsBar({
-        heart_rate_bpm: null,
-        mean_rr_interval: null,
-        pr_interval: null,
-        qrs_duration: null,
-        qt_interval: null,
-        n_beats_detected: null
-    });
-    
-    const shapUnavail = document.getElementById('shapUnavailableMsg');
-    const shapWrap = document.getElementById('shapChartWrap');
-    if (shapUnavail) {
-        shapUnavail.style.display = 'block';
-        shapUnavail.textContent = 'Upload a WFDB record (.hea + .mat) and click "Analyze ECG" to view fiducial-feature SHAP explanation.';
-    }
-    if (shapWrap) shapWrap.style.display = 'none';
+    const canvas = document.getElementById('ecgCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.parentElement.clientWidth;
+    canvas.height = 360;
+    drawMedicalEcgGrid(ctx, canvas.width, canvas.height);
 }
 
-// ==============================================================================
-// 8. REAL 12-LEAD ECG OSCILLOSCOPE & 1D GRAD-CAM OVERLAY
-// ==============================================================================
-function selectLead(leadId) {
-    activeLead = leadId;
+function selectLead(lead) {
+    activeLead = lead;
+    document.querySelectorAll('.lead-pill-group .pill-btn').forEach(btn => btn.classList.remove('active'));
     
-    document.querySelectorAll('#leadPills .pill-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent.includes(leadId) || (leadId === 'ALL' && btn.textContent.includes('All'))) {
+    const allBtns = document.querySelectorAll('.lead-pill-group .pill-btn');
+    allBtns.forEach(btn => {
+        if (btn.textContent.trim().includes(lead)) {
             btn.classList.add('active');
         }
     });
@@ -609,54 +650,54 @@ function selectLead(leadId) {
 function toggleGradCam() {
     gradCamEnabled = !gradCamEnabled;
     const btn = document.getElementById('toggleHeatmapBtn');
-    const state = document.getElementById('gradCamState');
-    if (btn && state) {
-        if (gradCamEnabled) {
-            btn.classList.add('active');
-            state.textContent = "ON";
-        } else {
-            btn.classList.remove('active');
-            state.textContent = "OFF";
-        }
-    }
+    const stateEl = document.getElementById('gradCamState');
+    
+    if (btn) btn.classList.toggle('active', gradCamEnabled);
+    if (stateEl) stateEl.textContent = gradCamEnabled ? 'ON' : 'OFF';
+    
     renderEcgCanvas();
+    renderXaiGradCamCanvas();
 }
 
 function resetCanvasZoom() {
     canvasZoomLevel = 1.0;
     canvasOffsetX = 0;
     renderEcgCanvas();
-    showToast('Oscilloscope Reset', 'Zoom and pan reset to 1.0x (10s window)');
+    renderXaiGradCamCanvas();
 }
 
 function setupCanvasInteractions() {
     const canvas = document.getElementById('ecgCanvas');
     if (!canvas) return;
     
+    let isDragging = false;
+    let startX = 0;
+    
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
-        const delta = e.deltaY < 0 ? 1.15 : 0.87;
-        canvasZoomLevel = Math.min(Math.max(canvasZoomLevel * delta, 0.7), 10.0);
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        canvasZoomLevel = Math.max(0.5, Math.min(5.0, canvasZoomLevel * delta));
         renderEcgCanvas();
-    });
+    }, { passive: false });
     
     canvas.addEventListener('mousedown', (e) => {
-        isPanning = true;
-        panStartX = e.clientX - canvasOffsetX;
+        isDragging = true;
+        startX = e.clientX - canvasOffsetX;
     });
     
     window.addEventListener('mousemove', (e) => {
-        if (!isPanning) return;
-        canvasOffsetX = e.clientX - panStartX;
+        if (!isDragging) return;
+        canvasOffsetX = e.clientX - startX;
         renderEcgCanvas();
     });
     
     window.addEventListener('mouseup', () => {
-        isPanning = false;
+        isDragging = false;
     });
     
     window.addEventListener('resize', () => {
         renderEcgCanvas();
+        renderXaiGradCamCanvas();
     });
 }
 
@@ -664,262 +705,482 @@ function renderEcgCanvas() {
     const canvas = document.getElementById('ecgCanvas');
     if (!canvas) return;
     
-    const wrapper = document.getElementById('canvasWrapper');
-    const rect = wrapper ? wrapper.getBoundingClientRect() : { width: 900, height: 420 };
-    
-    canvas.width = rect.width * (window.devicePixelRatio || 1);
-    canvas.height = (activeLead === 'ALL' ? 720 : 420) * (window.devicePixelRatio || 1);
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${activeLead === 'ALL' ? 720 : 420}px`;
+    const container = canvas.parentElement;
+    canvas.width = container.clientWidth;
+    canvas.height = 360;
     
     const ctx = canvas.getContext('2d');
-    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    const width = rect.width;
-    const height = activeLead === 'ALL' ? 720 : 420;
+    drawMedicalEcgGrid(ctx, canvas.width, canvas.height);
     
-    // 1. Clear background
-    ctx.fillStyle = "#030712";
-    ctx.fillRect(0, 0, width, height);
+    if (!realEcgData || !realEcgData.signals) return;
     
-    // 2. Draw standard medical 25mm/s & 10mm/mV grid
-    drawMedicalEcgGrid(ctx, width, height);
-    
-    // 3. Draw ECG Waveforms
-    if (!realEcgData || !realEcgData.signals) {
-        ctx.fillStyle = "#94a3b8";
-        ctx.font = "14px 'Inter', sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("No ECG signal loaded. Upload .hea & .mat files and click 'Analyze ECG'.", width / 2, height / 2);
-        return;
-    }
-    
-    const signals = realEcgData.signals; // shape (12, 5000)
-    const nSamples = signals[0].length; // 5000
+    const signals = realEcgData.signals;
     
     if (activeLead === 'ALL') {
-        const stripHeight = height / 12;
-        for (let l = 0; l < 12; l++) {
-            const leadName = LEAD_NAMES_STANDARD[l] || `Lead ${l+1}`;
-            const centerY = stripHeight * l + stripHeight / 2;
+        const leadNames = realEcgData.lead_names || ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"];
+        const rowHeight = canvas.height / 12;
+        
+        for (let i = 0; i < 12; i++) {
+            const rowY = i * rowHeight + rowHeight / 2;
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px JetBrains Mono, monospace';
+            ctx.fillText(leadNames[i], 12, rowY - 6);
             
-            ctx.fillStyle = "#38bdf8";
-            ctx.font = "bold 11px 'JetBrains Mono', monospace";
-            ctx.textAlign = "left";
-            ctx.fillText(leadName, 12, centerY - stripHeight / 2 + 14);
-            
-            drawSingleLeadWaveform(ctx, signals[l], centerY, stripHeight * 0.45, width, nSamples, false);
+            drawSingleLeadWaveform(ctx, canvas.width, canvas.height, signals[i], '#10b981', leadNames[i], rowY, rowHeight * 0.4);
         }
     } else {
         const leadIndex = getLeadIndexFromName(activeLead);
         const signal = signals[leadIndex] || signals[0];
-        const centerY = height / 2;
         
-        ctx.fillStyle = "rgba(56, 189, 248, 0.12)";
-        ctx.font = "bold 60px 'Inter', sans-serif";
-        ctx.textAlign = "right";
-        ctx.fillText(`Lead ${activeLead}`, width - 24, 75);
-        
-        if (gradCamEnabled && realGradCamValues && realGradCamValues.length === nSamples) {
-            drawGradCamHeatmap(ctx, realGradCamValues, centerY, height * 0.35, width, nSamples);
+        // Draw 1D Grad-CAM Heatmap overlay
+        if (gradCamEnabled && realGradCamValues && realGradCamValues.length > 0) {
+            drawGradCamHeatmap(ctx, canvas.width, canvas.height, realGradCamValues, 0, signal.length);
         }
         
-        drawSingleLeadWaveform(ctx, signal, centerY, height * 0.35, width, nSamples, true);
+        // Draw ECG waveform trace
+        drawSingleLeadWaveform(ctx, canvas.width, canvas.height, signal, '#10b981', activeLead, canvas.height / 2, canvas.height * 0.35);
     }
+}
+
+function renderXaiGradCamCanvas() {
+    const canvas = document.getElementById('xaiGradCamCanvas');
+    if (!canvas) return;
+    
+    const container = canvas.parentElement;
+    canvas.width = container.clientWidth;
+    canvas.height = 250;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    drawMedicalEcgGrid(ctx, canvas.width, canvas.height);
+    
+    if (!realEcgData || !realEcgData.signals) {
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '13px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Awaiting ECG Record Analysis on Page 1', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+    
+    // Draw Lead II with Grad-CAM overlay
+    const signal = realEcgData.signals[1] || realEcgData.signals[0];
+    
+    if (gradCamEnabled && realGradCamValues && realGradCamValues.length > 0) {
+        drawGradCamHeatmap(ctx, canvas.width, canvas.height, realGradCamValues, 0, signal.length);
+    }
+    
+    drawSingleLeadWaveform(ctx, canvas.width, canvas.height, signal, '#38bdf8', 'Lead II', canvas.height / 2, canvas.height * 0.35);
 }
 
 function drawMedicalEcgGrid(ctx, width, height) {
-    const smallGrid = 15;
-    const largeGrid = 75;
+    const smallGrid = 10 * canvasZoomLevel;
+    const largeGrid = smallGrid * 5;
     
-    ctx.strokeStyle = "rgba(56, 189, 248, 0.04)";
+    // Minor grid
+    ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    for (let x = 0; x < width; x += smallGrid) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+    }
+    for (let y = 0; y < height; y += smallGrid) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+    }
+    ctx.stroke();
+    
+    // Major grid
+    ctx.strokeStyle = 'rgba(51, 65, 85, 0.6)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let x = 0; x <= width; x += smallGrid) {
+    for (let x = 0; x < width; x += largeGrid) {
         ctx.moveTo(x, 0);
         ctx.lineTo(x, height);
     }
-    for (let y = 0; y <= height; y += smallGrid) {
+    for (let y = 0; y < height; y += largeGrid) {
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
     }
     ctx.stroke();
     
-    ctx.strokeStyle = "rgba(56, 189, 248, 0.10)";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    for (let x = 0; x <= width; x += largeGrid) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-    }
-    for (let y = 0; y <= height; y += largeGrid) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-    }
-    ctx.stroke();
-    
-    ctx.fillStyle = "rgba(148, 163, 184, 0.4)";
-    ctx.font = "10px 'JetBrains Mono', monospace";
-    ctx.textAlign = "left";
-    for (let sec = 0; sec <= 10; sec += 2) {
-        const xPos = (sec / 10) * width;
-        ctx.fillText(`${sec}.0s`, xPos + 4, height - 6);
-    }
-}
-
-function drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, nSamples, isPrimary) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, width, ctx.canvas.height);
-    ctx.clip();
-    
-    ctx.strokeStyle = isPrimary ? "#38bdf8" : "#0ea5e9";
-    ctx.lineWidth = isPrimary ? 2.0 : 1.4;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    
-    ctx.beginPath();
-    const stepX = (width / nSamples) * canvasZoomLevel;
-    
-    for (let i = 0; i < nSamples; i++) {
-        const x = (i * stepX) + canvasOffsetX;
-        if (x < -20 || x > width + 20) continue;
-        
-        const y = centerY - (signal[i] * ampScale);
-        if (i === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
+    // Time ticks at bottom
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    for (let sec = 0; sec <= 10; sec++) {
+        const xPos = (sec / 10.0) * width * canvasZoomLevel + canvasOffsetX;
+        if (xPos >= 0 && xPos <= width) {
+            ctx.fillText(`${sec}s`, xPos, height - 6);
         }
     }
-    ctx.stroke();
-    ctx.restore();
 }
 
-function drawGradCamHeatmap(ctx, camValues, centerY, ampScale, width, nSamples) {
-    ctx.save();
-    const stepX = (width / nSamples) * canvasZoomLevel;
+function drawSingleLeadWaveform(ctx, width, height, signal, color, label, centerY, scaleY) {
+    const n = signal.length;
+    const step = (width / n) * canvasZoomLevel;
     
-    for (let i = 0; i < nSamples; i += 4) {
-        const x = (i * stepX) + canvasOffsetX;
-        if (x < -20 || x > width + 20) continue;
-        
-        const intensity = Math.min(Math.max(camValues[i], 0), 1.0);
-        if (intensity > 0.05) {
-            const w = stepX * 4;
-            const grad = ctx.createLinearGradient(x, centerY - ampScale, x, centerY + ampScale);
-            grad.addColorStop(0, `rgba(244, 63, 94, 0)`);
-            grad.addColorStop(0.5, `rgba(244, 63, 94, ${intensity * 0.35})`);
-            grad.addColorStop(1, `rgba(244, 63, 94, 0)`);
-            
-            ctx.fillStyle = grad;
-            ctx.fillRect(x, centerY - ampScale, w, ampScale * 2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    
+    for (let i = 0; i < n; i++) {
+        const x = i * step + canvasOffsetX;
+        const y = centerY - signal[i] * scaleY;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    
+    // Lead identifier label
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = 'bold 12px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, 16, centerY - scaleY * 0.7);
+}
+
+function drawGradCamHeatmap(ctx, width, height, camValues, startIdx, endIdx) {
+    const n = endIdx - startIdx;
+    const step = (width / n) * canvasZoomLevel;
+    
+    ctx.save();
+    for (let i = 0; i < n; i++) {
+        const val = camValues[startIdx + i] || 0.0;
+        if (val > 0.08) {
+            const x = i * step + canvasOffsetX;
+            const alpha = Math.min(0.65, val * 0.75);
+            ctx.fillStyle = `rgba(244, 63, 94, ${alpha})`;
+            ctx.fillRect(x - step / 2, 0, step + 0.5, height);
         }
     }
     ctx.restore();
 }
 
 function getLeadIndexFromName(name) {
-    const clean = name.replace("Lead ", "").trim();
-    const idx = LEAD_NAMES_STANDARD.indexOf(clean);
-    return idx >= 0 ? idx : 1;
+    const mapping = {
+        "I": 0, "II": 1, "III": 2, "aVR": 3, "aVL": 4, "aVF": 5,
+        "V1": 6, "V2": 7, "V3": 8, "V4": 9, "V5": 10, "V6": 11
+    };
+    return mapping[name] !== undefined ? mapping[name] : 1;
 }
 
-// ==============================================================================
-// 9. FIDUCIAL FEATURE SHAP & METRICS
-// ==============================================================================
 function updateFiducialsBar(fiducials) {
     if (!fiducials) return;
     
-    const setVal = (id, val, unit) => {
+    const setVal = (id, val, suffix = '') => {
         const el = document.getElementById(id);
-        if (el) el.textContent = (val !== undefined && val !== null) ? `${Number(val).toFixed(1)} ${unit}` : '--';
+        if (el) el.textContent = val !== undefined && val !== null ? `${val} ${suffix}` : '--';
     };
     
-    setVal('wfHR', fiducials.heart_rate_bpm, 'bpm');
-    setVal('wfRR', (fiducials.mean_rr_interval ? fiducials.mean_rr_interval * 1000 : null), 'ms');
-    setVal('wfPR', (fiducials.pr_interval ? fiducials.pr_interval * 1000 : null), 'ms');
-    setVal('wfQRS', (fiducials.qrs_duration ? fiducials.qrs_duration * 1000 : null), 'ms');
-    setVal('wfQT', (fiducials.qt_interval ? fiducials.qt_interval * 1000 : null), 'ms');
-    
-    const beatsEl = document.getElementById('wfBeats');
-    if (beatsEl) beatsEl.textContent = (fiducials.n_beats_detected !== undefined && fiducials.n_beats_detected !== null) ? fiducials.n_beats_detected : '--';
+    setVal('wfHR', (fiducials.heart_rate_bpm !== undefined) ? fiducials.heart_rate_bpm.toFixed(1) : '--', 'bpm');
+    setVal('wfRR', (fiducials.mean_rr_interval !== undefined) ? (fiducials.mean_rr_interval * 1000).toFixed(0) : '--', 'ms');
+    setVal('wfPR', (fiducials.pr_interval !== undefined) ? (fiducials.pr_interval * 1000).toFixed(0) : '--', 'ms');
+    setVal('wfQRS', (fiducials.qrs_duration !== undefined) ? (fiducials.qrs_duration * 1000).toFixed(0) : '--', 'ms');
+    setVal('wfQT', (fiducials.qt_interval !== undefined) ? (fiducials.qt_interval * 1000).toFixed(0) : '--', 'ms');
+    setVal('wfBeats', fiducials.n_beats_detected !== undefined ? fiducials.n_beats_detected : '--');
 }
 
-function renderRealShapChart(shapData) {
-    const ctx = document.getElementById('shapBarChartStudio');
-    const badge = document.getElementById('shapTargetBadge');
-    const unavail = document.getElementById('shapUnavailableMsg');
-    const wrap = document.getElementById('shapChartWrap');
+// ==============================================================================
+// 9. GENUINE SHAP BEESWARM PLOT (CANVAS ENGINE)
+// ==============================================================================
+function renderShapBeeswarm(canvasId, shapData) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
     
-    if (!ctx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const container = canvas.parentElement;
+    const width = container.clientWidth > 0 ? container.clientWidth : 720;
+    const height = 320;
     
-    if (badge) badge.textContent = `Target: ${shapData.target_class || '--'}`;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.height = `${height}px`;
     
-    if (!shapData || !shapData.available || !shapData.features) {
-        if (unavail) {
-            unavail.style.display = 'block';
-            unavail.textContent = (shapData && shapData.message) ? shapData.message : 'SHAP unavailable for this record.';
-        }
-        if (wrap) wrap.style.display = 'none';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, width, height);
+    
+    if (!shapData || !shapData.available || !shapData.beeswarm) {
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '13px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(shapData && shapData.message ? shapData.message : 'SHAP Beeswarm data unavailable for this record.', width / 2, height / 2);
         return;
     }
     
-    if (unavail) unavail.style.display = 'none';
-    if (wrap) wrap.style.display = 'block';
+    const bw = shapData.beeswarm;
+    const features = bw.features; // 9 features sorted descending by mean_abs_shap
     
-    const featureLabels = {
-        "mean_rr_interval": "Mean RR Interval",
-        "heart_rate_bpm": "Heart Rate (bpm)",
-        "p_wave_amplitude": "P-Wave Amplitude",
-        "qrs_amplitude": "QRS Amplitude",
-        "t_wave_amplitude": "T-Wave Amplitude",
-        "pr_interval": "PR Interval",
-        "qt_interval": "QT Interval",
-        "qrs_duration": "QRS Duration",
-        "n_beats_detected": "Detected Beats"
-    };
+    const marginLeft = 180;
+    const marginRight = 35;
+    const marginTop = 20;
+    const marginBottom = 45;
+    const plotWidth = width - marginLeft - marginRight;
+    const plotHeight = height - marginTop - marginBottom;
     
-    const labels = Object.keys(shapData.features).map(k => featureLabels[k] || k);
-    const values = Object.values(shapData.features);
+    let minShap = -0.55;
+    let maxShap = 0.55;
+    features.forEach(f => {
+        if (f.points) {
+            f.points.forEach(pt => {
+                if (pt.shap < minShap) minShap = pt.shap;
+                if (pt.shap > maxShap) maxShap = pt.shap;
+            });
+        }
+    });
+    const absMax = Math.max(Math.abs(minShap), Math.abs(maxShap), 0.5) * 1.15;
+    minShap = -absMax;
+    maxShap = absMax;
     
-    if (shapChartStudio) shapChartStudio.destroy();
+    const xZero = marginLeft + plotWidth * (0 - minShap) / (maxShap - minShap);
     
-    shapChartStudio = new Chart(ctx, {
+    // Vertical center zero line (SHAP = 0)
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(xZero, marginTop - 8);
+    ctx.lineTo(xZero, marginTop + plotHeight + 6);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Bottom axis line
+    ctx.strokeStyle = 'rgba(75, 85, 99, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, marginTop + plotHeight);
+    ctx.lineTo(marginLeft + plotWidth, marginTop + plotHeight);
+    ctx.stroke();
+    
+    // Numerical ticks along bottom axis
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    const ticks = 6;
+    for (let i = 0; i <= ticks; i++) {
+        const val = minShap + (maxShap - minShap) * (i / ticks);
+        const xPos = marginLeft + plotWidth * (i / ticks);
+        ctx.fillText((val > 0 ? '+' : '') + val.toFixed(2), xPos, marginTop + plotHeight + 16);
+        
+        ctx.beginPath();
+        ctx.moveTo(xPos, marginTop + plotHeight);
+        ctx.lineTo(xPos, marginTop + plotHeight + 4);
+        ctx.stroke();
+    }
+    
+    // X-Axis Title
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`SHAP Value (Impact on ${bw.target_class || 'Prediction'} Model Output)`, marginLeft + plotWidth / 2, height - 10);
+    
+    const rowHeight = plotHeight / features.length;
+    
+    // Draw feature rows and dots
+    features.forEach((feat, idx) => {
+        const yRow = marginTop + idx * rowHeight + rowHeight / 2;
+        
+        // Feature label
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = '11px Inter, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(feat.label, marginLeft - 12, yRow + 4);
+        
+        // Horizontal light guide
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.25)';
+        ctx.beginPath();
+        ctx.moveTo(marginLeft, yRow);
+        ctx.lineTo(marginLeft + plotWidth, yRow);
+        ctx.stroke();
+        
+        if (!feat.points) return;
+        
+        // Render cohort sample dots
+        const sortedPoints = [...feat.points].sort((a, b) => (a.is_patient ? 1 : 0) - (b.is_patient ? 1 : 0));
+        
+        sortedPoints.forEach((pt, pIdx) => {
+            const xPos = marginLeft + plotWidth * (pt.shap - minShap) / (maxShap - minShap);
+            const jitterRange = rowHeight * 0.35;
+            const jitter = ((pIdx * 41) % 21 - 10) / 10 * jitterRange;
+            const yPos = yRow + (pt.is_patient ? 0 : jitter);
+            
+            // Color interpolate: Blue (59, 130, 246) -> Red (239, 68, 68)
+            const n = Math.max(0, Math.min(1, pt.norm !== undefined ? pt.norm : 0.5));
+            const r = Math.round(59 + (239 - 59) * n);
+            const g = Math.round(130 + (68 - 130) * n);
+            const b = Math.round(246 + (68 - 246) * n);
+            
+            if (pt.is_patient) {
+                // Patient marker: glowing yellow diamond
+                ctx.save();
+                ctx.fillStyle = '#facc15';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#facc15';
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.moveTo(xPos, yPos - 6);
+                ctx.lineTo(xPos + 6, yPos);
+                ctx.lineTo(xPos, yPos + 6);
+                ctx.lineTo(xPos - 6, yPos);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            } else {
+                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.72)`;
+                ctx.beginPath();
+                ctx.arc(xPos, yPos, 3.8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+    });
+}
+
+// ==============================================================================
+// 10. AUTOMATED CLINICAL REASONING DOSSIER
+// ==============================================================================
+function renderClinicalReport(data) {
+    const container = document.getElementById('reportContent');
+    if (!container) return;
+    
+    if (!data || !data.clinical_report) {
+        container.innerHTML = '<p class="text-muted">Upload and analyze a valid ECG recording (.hea + .mat) to generate a structured 7-section clinical evaluation.</p>';
+        return;
+    }
+    
+    const report = data.clinical_report;
+    const rawMd = report.report_markdown || '';
+    
+    let html = rawMd
+        .replace(/### (.*?)\n/g, '<h4 class="report-section-title"><i class="fa-solid fa-notes-medical text-primary mr-1"></i> $1</h4>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code class="code-badge">$1</code>')
+        .replace(/- \*\*(.*?)\*\*:(.*?)\n/g, '<div class="report-item"><span class="report-item-label">$1:</span> <span class="report-item-val">$2</span></div>')
+        .replace(/- (.*?)\n/g, '<li class="report-bullet">$1</li>')
+        .replace(/\n\n/g, '<div class="my-2"></div>');
+        
+    container.innerHTML = `
+        <div class="report-source-badge mb-2">
+            <span class="badge badge-info"><i class="fa-solid fa-certificate mr-1"></i> ${escapeHtml(report.source)}</span>
+            <span class="badge badge-outline ml-auto">Validated Output</span>
+        </div>
+        <div class="report-body-formatted">
+            ${html}
+        </div>
+    `;
+}
+
+function downloadReport() {
+    if (!latestBackendResponse || !latestBackendResponse.clinical_report) {
+        showToast('No Data', 'Please execute an ECG analysis before exporting the clinical dossier.');
+        return;
+    }
+    
+    const rep = latestBackendResponse.clinical_report;
+    const recId = latestBackendResponse.record ? latestBackendResponse.record.record_id : 'ECG-RECORD';
+    const textContent = `CARDIOSIGHT PRO — CLINICAL ECG EVALUATION DOSSIER\nRecord: ${recId}\nGenerated: ${new Date().toISOString()}\nSource: ${rep.source}\n\n${rep.report_markdown}\n`;
+    
+    const blob = new Blob([textContent], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `CardioSight_Report_${recId}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast('Report Exported', `Clinical dossier saved as CardioSight_Report_${recId}.md`);
+}
+
+// ==============================================================================
+// 11. PAGE 2: UNCERTAINTY QUANTIFICATION (MC-DROPOUT)
+// ==============================================================================
+function updateUncertaintyKpiCards(uncertainty, prediction) {
+    const valClass = document.getElementById('valPredClass');
+    const valProb = document.getElementById('valPredProb');
+    const valStd = document.getElementById('valPredStd');
+    
+    if (prediction && valClass) {
+        valClass.textContent = prediction.class;
+    }
+    if (prediction && valProb) {
+        valProb.textContent = `${(prediction.probability * 100).toFixed(1)}%`;
+    }
+    if (uncertainty && valStd) {
+        valStd.textContent = (uncertainty.predicted_class_uncertainty !== undefined) 
+            ? uncertainty.predicted_class_uncertainty.toFixed(4)
+            : '--';
+    }
+}
+
+function renderMCDropoutChart(uncertainty) {
+    const ctx = document.getElementById('mcDropoutChart');
+    if (!ctx) return;
+    
+    const labels = CLASS_NAMES;
+    const means = [];
+    const stds = [];
+    
+    labels.forEach(cls => {
+        if (uncertainty && uncertainty.classes && uncertainty.classes[cls]) {
+            means.push(uncertainty.classes[cls].mean_probability || 0.0);
+            stds.push(uncertainty.classes[cls].uncertainty_std || 0.0);
+        } else {
+            means.push(0.0);
+            stds.push(0.0);
+        }
+    });
+    
+    if (mcDropoutChartInstance) {
+        mcDropoutChartInstance.destroy();
+    }
+    
+    mcDropoutChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
             datasets: [{
-                label: 'SHAP Feature Attribution',
-                data: values,
-                backgroundColor: values.map(v => v >= 0 ? 'rgba(56, 189, 248, 0.85)' : 'rgba(244, 63, 94, 0.85)'),
-                borderColor: values.map(v => v >= 0 ? '#38bdf8' : '#f43f5e'),
-                borderWidth: 1,
+                label: 'Mean Probability (30 Passes)',
+                data: means,
+                backgroundColor: labels.map(c => CLASS_COLORS[c] || '#38bdf8'),
                 borderRadius: 4
             }]
         },
         options: {
-            indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
-                        label: function(c) {
-                            return ` SHAP Impact: ${c.parsed.x > 0 ? '+' : ''}${c.parsed.x.toFixed(4)}`;
+                        label: (ctx) => {
+                            const idx = ctx.dataIndex;
+                            const cls = labels[idx];
+                            const m = (means[idx] * 100).toFixed(1);
+                            const s = stds[idx].toFixed(4);
+                            return `${cls}: Mean ${m}% (Std Error σ = ${s})`;
                         }
                     }
                 }
             },
             scales: {
-                x: {
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } }
-                },
                 y: {
+                    beginAtZero: true,
+                    max: 1.0,
+                    grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                    ticks: {
+                        color: '#94a3b8',
+                        callback: (v) => `${(v * 100).toFixed(0)}%`
+                    }
+                },
+                x: {
                     grid: { display: false },
-                    ticks: { color: '#e2e8f0', font: { family: 'Inter', size: 11 } }
+                    ticks: { color: '#e2e8f0', font: { weight: 'bold' } }
                 }
             }
         }
@@ -927,254 +1188,46 @@ function renderRealShapChart(shapData) {
 }
 
 // ==============================================================================
-// 10. PAGE 2: REAL MC-DROPOUT UNCERTAINTY VISUALIZATION
+// 12. CLINICAL AI ASSISTANT DIALOGUE
 // ==============================================================================
-function updateUncertaintyKpiCards(uncertainty, pred) {
-    const valClass = document.getElementById('valPredClass');
-    const valProb = document.getElementById('valPredProb');
-    const valStd = document.getElementById('valPredStd');
-    
-    if (valClass && pred) valClass.textContent = pred.class;
-    if (valProb && pred) valProb.textContent = `${(pred.probability * 100).toFixed(1)}%`;
-    if (valStd && uncertainty) valStd.textContent = `± ${(uncertainty.predicted_class_uncertainty !== undefined && uncertainty.predicted_class_uncertainty !== null ? uncertainty.predicted_class_uncertainty : 0).toFixed(4)}`;
-}
-
-function renderMCDropoutChart(uncertaintyData) {
-    const ctx = document.getElementById('mcDropoutChart');
-    if (!ctx || !uncertaintyData || !uncertaintyData.classes) return;
-    
-    const classes = CLASS_NAMES;
-    const means = classes.map(c => {
-        const item = uncertaintyData.classes[c];
-        return item ? item.mean_probability : 0.0;
-    });
-    
-    const stds = classes.map(c => {
-        const item = uncertaintyData.classes[c];
-        return item ? item.uncertainty_std : 0.0;
-    });
-    
-    if (mcDropoutChart) mcDropoutChart.destroy();
-    
-    mcDropoutChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: classes.map(c => CLASS_FULL_NAMES[c] || c),
-            datasets: [
-                {
-                    label: 'Mean Predicted Probability (30 Passes)',
-                    data: means,
-                    backgroundColor: 'rgba(56, 189, 248, 0.75)',
-                    borderColor: '#38bdf8',
-                    borderWidth: 1.5,
-                    borderRadius: 6
-                },
-                {
-                    label: 'Uncertainty Std Dev (± σ)',
-                    data: stds,
-                    backgroundColor: 'rgba(244, 63, 94, 0.75)',
-                    borderColor: '#f43f5e',
-                    borderWidth: 1.5,
-                    borderRadius: 6
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'top',
-                    labels: { color: '#e2e8f0', font: { family: 'Inter', size: 12 } }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(c) {
-                            return ` ${c.dataset.label}: ${c.parsed.y.toFixed(4)}`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { color: 'rgba(255,255,255,0.05)' },
-                    ticks: { color: '#94a3b8', font: { family: 'Inter', size: 10 }, maxRotation: 45 }
-                },
-                y: {
-                    grid: { color: 'rgba(255,255,255,0.08)' },
-                    ticks: { color: '#e2e8f0', font: { family: 'JetBrains Mono', size: 11 } },
-                    min: 0.0,
-                    max: 1.0
-                }
-            }
-        }
-    });
-}
-
-// ==============================================================================
-// 11. CLINICAL REPORT & REASONING (DETERMINISTIC)
-// ==============================================================================
-function renderClinicalReport(predictedClass, probability) {
-    const container = document.getElementById('reportContent');
-    if (!container) return;
-    
-    const descriptions = {
-        "AF": {
-            etiology: "Chaotic atrial depolarization (350-600 bpm) with irregularly irregular ventricular response and absent discrete P-waves.",
-            risks: "Elevated risk of cardioembolic stroke, systemic thromboembolism, and tachycardia-induced cardiomyopathy.",
-            actions: "Assess CHA2DS2-VASc score for anticoagulation (DOACs), initiate ventricular rate control (beta-blockers/diltiazem), and evaluate for rhythm conversion."
-        },
-        "NSR": {
-            etiology: "Normal sinus rhythm originating from the SA node with regular 1:1 AV conduction and normal fiducial intervals.",
-            risks: "Standard baseline physiological cardiovascular state.",
-            actions: "Routine clinical follow-up; no acute antiarrhythmic intervention indicated."
-        },
-        "LBBB": {
-            etiology: "Delayed left ventricular conduction manifesting as wide QRS (>=120ms) with broad notched R-waves in lateral leads.",
-            risks: "Potential underlying structural heart disease, dilated cardiomyopathy, or coronary ischemia.",
-            actions: "Transthoracic echocardiography to assess left ventricular ejection fraction (LVEF); cardiology consultation."
-        },
-        "RBBB": {
-            etiology: "Conduction delay in right bundle branch producing rsR' pattern in V1 and wide slurred S wave in lateral leads.",
-            risks: "May be idiopathic or associated with pulmonary hypertension, right ventricular strain, or ASD.",
-            actions: "Correlate with clinical symptoms, oxygen saturation, and prior ECGs."
-        },
-        "IAVB": {
-            etiology: "Prolonged AV nodal conduction delay resulting in PR interval > 200 ms with 1:1 AV conduction.",
-            risks: "Progression to higher-grade AV blocks if accompanied by bifascicular block.",
-            actions: "Review AV-nodal blocking medications (beta-blockers, non-DHP CCBs, digoxin)."
-        },
-        "STach": {
-            etiology: "Sinus rhythm with ventricular rate exceeding 100 bpm in response to physiological or pathological triggers.",
-            risks: "Increased myocardial oxygen demand; hemodynamic compromise in severe tachycardia.",
-            actions: "Identify underlying cause: fever, hypovolemia, infection, hyperthyroidism, pain, or stimulants."
-        },
-        "SB": {
-            etiology: "Sinus rhythm with ventricular rate under 60 bpm due to high vagal tone or intrinsic SA node disease.",
-            risks: "Syncope, presyncope, or chronotropic incompetence.",
-            actions: "Evaluate symptomatic status; review negative chronotropes; consider atropine or pacing if symptomatic."
-        },
-        "PAC": {
-            etiology: "Ectopic atrial pacemaker firing prematurely prior to the expected normal sinus beat.",
-            risks: "Frequent PACs may trigger paroxysmal atrial fibrillation or flutter.",
-            actions: "Assess electrolyte balance, reduce caffeine and adrenergic triggers, evaluate holter monitor if palpitations persist."
-        },
-        "LAD": {
-            etiology: "Frontal QRS axis between -30° and -90°, often reflecting left anterior fascicular block or left ventricular hypertrophy.",
-            risks: "Underlying structural hypertensive heart disease or conduction system degeneration.",
-            actions: "Evaluate blood pressure control and perform transthoracic echocardiogram."
-        },
-        "QAb": {
-            etiology: "Pathological Q-waves (>40ms or >25% R-wave height) reflecting myocardial infarction / transmural electrical silence.",
-            risks: "Myocardial scar, regional wall motion abnormalities, ventricular arrhythmias.",
-            actions: "Correlate with troponin, prior coronary angiograms, and echocardiographic wall motion."
-        },
-        "TAb": {
-            etiology: "T-wave inversion, flattening, or hyperacute configuration signaling myocardial ischemia, strain, or electrolyte shifts.",
-            risks: "Acute coronary syndrome or severe hyper/hypokalemia.",
-            actions: "Obtain urgent serum potassium and serial cardiac biomarkers; compare with baseline ECG."
-        },
-        "NSIVCB": {
-            etiology: "Intraventricular conduction delay (QRS > 110ms) without diagnostic bundle branch morphology.",
-            risks: "Diffuse myocardial fibrosis or cardiomyopathy.",
-            actions: "Clinical correlation with symptoms and cardiac imaging."
-        }
-    };
-    
-    const info = descriptions[predictedClass] || descriptions["AF"];
-    const fullName = CLASS_FULL_NAMES[predictedClass] || predictedClass;
-    
-    container.innerHTML = `
-        <div class="report-box">
-            <h4 class="report-title text-primary"><i class="fa-solid fa-heart-circle-bolt"></i> ${fullName} (Confidence: ${(probability * 100).toFixed(1)}%)</h4>
-            <div class="report-section mt-2">
-                <strong>Electrophysiological Etiology:</strong>
-                <p>${info.etiology}</p>
-            </div>
-            <div class="report-section mt-2">
-                <strong>Clinical Risks & Hemodynamic Impact:</strong>
-                <p>${info.risks}</p>
-            </div>
-            <div class="report-section mt-2">
-                <strong>Recommended Precautions & Actions:</strong>
-                <p>${info.actions}</p>
-            </div>
-        </div>
-    `;
-}
-
-function downloadReport() {
-    if (!latestBackendResponse) {
-        showToast('No Data', 'Please execute ECG analysis before exporting report.');
-        return;
-    }
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(latestBackendResponse, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `CardioSight_Report_${latestBackendResponse.record.record_id || 'ECG'}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    showToast('Report Exported', 'Clinical JSON dossier downloaded.');
-}
-
-// ==============================================================================
-// 12. PAGE 2: CLINICAL AI ASSISTANT CHATBOT (INFORMATIONAL)
-// ==============================================================================
-function askPresetQuestion(text) {
+function askPresetQuestion(q) {
     const input = document.getElementById('chatInput');
     if (input) {
-        input.value = text;
+        input.value = q;
         sendChatMessage();
     }
 }
 
 function sendChatMessage() {
     const input = document.getElementById('chatInput');
-    if (!input) return;
-    const q = input.value.trim();
-    if (!q) return;
+    if (!input || !input.value.trim()) return;
     
-    addChatMessage('user', q);
+    const text = input.value.trim();
     input.value = '';
     
+    addChatMessage('user', text);
+    
     setTimeout(() => {
-        const predClass = latestBackendResponse ? latestBackendResponse.prediction.class : 'AF';
-        const prob = latestBackendResponse ? latestBackendResponse.prediction.probability : 0.95;
-        const answer = generateLocalInformationalAnswer(q, predClass, prob);
-        addChatMessage('ai', answer);
-    }, 350);
+        const reply = generateLocalInformationalAnswer(text);
+        addChatMessage('ai', reply);
+    }, 400);
 }
 
 function addChatMessage(sender, text) {
     const dialogue = document.getElementById('chatDialogue');
     if (!dialogue) return;
     
-    const msgDiv = document.createElement('div');
-    msgDiv.className = `chat-msg ${sender}-msg`;
-    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
-    if (sender === 'user') {
-        msgDiv.innerHTML = `
-            <div class="msg-avatar"><i class="fa-solid fa-user-tie"></i></div>
-            <div class="msg-bubble">
-                <div class="msg-author">Clinician</div>
-                <div class="msg-text">${escapeHtml(text)}</div>
-                <div class="msg-time">${now}</div>
-            </div>
-        `;
-    } else {
-        msgDiv.innerHTML = `
-            <div class="msg-avatar"><i class="fa-solid fa-user-doctor"></i></div>
-            <div class="msg-bubble">
-                <div class="msg-author">CardioSight Clinical Assistant</div>
-                <div class="msg-text">${text}</div>
-                <div class="msg-time">${now}</div>
-            </div>
-        `;
-    }
-    
-    dialogue.appendChild(msgDiv);
+    const div = document.createElement('div');
+    div.className = `chat-msg ${sender === 'user' ? 'user-msg' : 'ai-msg'}`;
+    div.innerHTML = `
+        <div class="msg-avatar"><i class="fa-solid ${sender === 'user' ? 'fa-user' : 'fa-user-doctor'}"></i></div>
+        <div class="msg-bubble">
+            <div class="msg-author">${sender === 'user' ? 'You' : 'CardioSight Clinical Assistant'}</div>
+            <div class="msg-text">${text}</div>
+            <div class="msg-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+        </div>
+    `;
+    dialogue.appendChild(div);
     dialogue.scrollTop = dialogue.scrollHeight;
 }
 
@@ -1186,114 +1239,132 @@ function clearChatHistory() {
             <div class="msg-avatar"><i class="fa-solid fa-user-doctor"></i></div>
             <div class="msg-bubble">
                 <div class="msg-author">CardioSight Clinical Assistant</div>
-                <div class="msg-text">Chat cleared. Ready for your clinical inquiries.</div>
+                <div class="msg-text">Conversation history cleared. How can I assist you with your ECG analysis or model explanation?</div>
                 <div class="msg-time">Ready</div>
             </div>
         </div>
     `;
-    showToast('Chat Cleared', 'Conversation history reset.');
 }
 
-function generateLocalInformationalAnswer(query, predictedClass, prob) {
+function generateLocalInformationalAnswer(query) {
     const q = query.toLowerCase();
-    const fullName = CLASS_FULL_NAMES[predictedClass] || predictedClass;
+    const curClass = latestBackendResponse && latestBackendResponse.prediction 
+        ? latestBackendResponse.prediction.class 
+        : 'NSR';
     
-    if (q.includes('reason') || q.includes('why') || q.includes('diagnos')) {
-        return `<strong>Diagnostic Basis for ${fullName}:</strong><br>The ResNet-34 model predicts ${fullName} with ${(prob * 100).toFixed(1)}% sigmoid probability. Saliency maps (1D Grad-CAM from layer 4) and NeuroKit2 fiducial features highlight the characteristic rhythm and morphology patterns.`;
+    if (q.includes('current predicted diagnosis') || q.includes('reasoning')) {
+        const full = CLASS_FULL_NAMES[curClass] || curClass;
+        return `The current primary model classification is <strong>${curClass} (${full})</strong>. The 1D ResNet-34 model evaluated multi-lead voltage depolarization contours, while NeuroKit2 fiducial extraction and Random Forest TreeSHAP identified dominant timing and amplitude feature attributions for this classification.`;
     }
-    if (q.includes('uncertainty') || q.includes('mc') || q.includes('dropout')) {
-        const u = latestBackendResponse && latestBackendResponse.uncertainty ? latestBackendResponse.uncertainty.predicted_class_uncertainty : 0.038;
-        return `<strong>MC-Dropout Uncertainty Interpretation:</strong><br>30 stochastic forward passes with dropout probability <em>p = 0.3</em> produced an uncertainty standard deviation of <strong>&sigma; = ${Number(u).toFixed(4)}</strong> for ${fullName}. A lower &sigma; indicates higher stability across stochastic perturbations.`;
+    
+    if (q.includes('uncertainty') || q.includes('standard deviation')) {
+        return `Monte Carlo Dropout executes 30 stochastic forward passes with dropout probability p = 0.30 at inference time. The standard deviation (&sigma;) measures Bayesian epistemic dispersion. A low standard deviation indicates consistent model representations, whereas elevated dispersion signals borderline waveform morphology or distribution shift from the training cohorts.`;
     }
-    if (q.includes('precaution') || q.includes('protocol') || q.includes('drug') || q.includes('treatment')) {
-        return `<strong>Precautions for ${fullName}:</strong><br>Refer to standard cardiology guidelines. Verify electrolyte balance (K+, Mg2+), review chronotropic and AV-nodal blocking medications, and consider 12-lead Holter monitoring or echocardiography if symptomatic.`;
+    
+    if (q.includes('precautions') || q.includes('treatment')) {
+        return `Clinical guidelines for ${curClass} recommend correlation with patient vitals, acute symptoms (chest tightness, dyspnea, syncope), and baseline tracings. If ischemic signs or hemodynamic compromise are present, immediate cardiology review and emergency medical protocols must be initiated.`;
     }
-    if (q.includes('fedavg') || q.includes('fedprox') || q.includes('fedadam') || q.includes('strategy') || q.includes('differ')) {
-        return `<strong>Federated Learning Strategies:</strong><br>&bull; <strong>FedAvg:</strong> Classical parameter averaging across participating nodes.<br>&bull; <strong>FedProx:</strong> Adds a proximal term (&mu;=0.001) to limit local gradient drift under non-IID data.<br>&bull; <strong>FedAdam:</strong> Server-side adaptive momentum optimization (&beta;1=0.9, &beta;2=0.99, server LR=0.01, &epsilon;=0.001) for robust convergence across heterogeneous cohorts.`;
+    
+    if (q.includes('fedavg') || q.includes('fedprox') || q.includes('fedadam') || q.includes('difference')) {
+        return `<strong>FedAvg</strong> performs sample-weighted parameter averaging. <strong>FedProx</strong> introduces a proximal penalty (&mu;=0.001) to constrain client drift under non-IID class imbalance, achieving lower F1-STD across rare classes. <strong>FedAdam</strong> incorporates adaptive first and second server-side moments (&beta;1=0.9, &beta;2=0.99, &eta;=0.01) to achieve stable convergence across all participating hospital cohorts.`;
     }
-    return `For ${fullName}, the universal 12-class federated ResNet-34 model indicates a probability of ${(prob * 100).toFixed(1)}%. Review the 12-lead oscilloscope, fiducial feature SHAP chart, and MC-Dropout uncertainty distributions for comprehensive assessment. (Note: CardioSight provides research decision support and does not replace qualified clinical consultation).`;
+    
+    return `CardioSight PRO analyzes 12-lead ECG records through a federated ResNet-34 architecture. Query me regarding specific pathologies (AF, LBBB, NSR), explainability metrics (1D Grad-CAM, SHAP Beeswarm), or federated optimization benchmarks.`;
 }
 
-function escapeHtml(text) {
-    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, m => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    })[m]);
 }
 
 // ==============================================================================
-// 13. PAGES 3, 4, 5 (PRESERVED BENCHMARKS & PATHOLOGY GUIDE)
+// 13. PAGE 3: FEDERATED LEARNING BENCHMARK DATA
 // ==============================================================================
-const CLIENT_BENCHMARK_DATA = {
-    all: {
-        title: "All Cohorts Overview (84,210 Records)",
-        f1: { fedadam: 0.812, fedprox: 0.798, fedavg: 0.774 },
-        classes: [
-            { name: "AF (Atrial Fibrillation)", f1: 0.892, prec: 0.905, rec: 0.880, std: 0.012 },
-            { name: "IAVB (1st-Degree AV Block)", f1: 0.785, prec: 0.810, rec: 0.762, std: 0.018 },
-            { name: "LAD (Left Axis Deviation)", f1: 0.834, prec: 0.845, rec: 0.824, std: 0.015 },
-            { name: "LBBB (Left Bundle Branch Block)", f1: 0.921, prec: 0.930, rec: 0.912, std: 0.009 },
-            { name: "NSIVCB (Non-Specific Intraventricular)", f1: 0.684, prec: 0.710, rec: 0.660, std: 0.024 },
-            { name: "NSR (Normal Sinus Rhythm)", f1: 0.942, prec: 0.951, rec: 0.933, std: 0.008 },
-            { name: "PAC (Premature Atrial Contraction)", f1: 0.745, prec: 0.760, rec: 0.731, std: 0.021 },
-            { name: "QAb (Abnormal Q-Wave)", f1: 0.712, prec: 0.735, rec: 0.690, std: 0.026 },
-            { name: "RBBB (Right Bundle Branch Block)", f1: 0.905, prec: 0.915, rec: 0.895, std: 0.011 },
-            { name: "SB (Sinus Bradycardia)", f1: 0.876, prec: 0.890, rec: 0.862, std: 0.014 },
-            { name: "STach (Sinus Tachycardia)", f1: 0.889, prec: 0.902, rec: 0.876, std: 0.013 },
-            { name: "TAb (T-Wave Abnormality)", f1: 0.768, prec: 0.785, rec: 0.752, std: 0.019 }
+const CLIENT_SCORECARDS = {
+    "chapman": {
+        name: "Chapman-Shaoxing Hospital",
+        location: "Shaoxing, Zhejiang, China",
+        samples: 10247,
+        macroF1: "0.619",
+        microF1: "0.884",
+        f1Std: "0.2610",
+        dominant: "NSR, SB, AF",
+        scores: [
+            { cls: "AF", f1: "0.814" }, { cls: "IAVB", f1: "0.768" }, { cls: "LAD", f1: "0.660" },
+            { cls: "LBBB", f1: "0.517" }, { cls: "NSIVCB", f1: "0.038" }, { cls: "NSR", f1: "0.823" },
+            { cls: "PAC", f1: "0.423" }, { cls: "QAb", f1: "0.328" }, { cls: "RBBB", f1: "0.516" },
+            { cls: "SB", f1: "0.949" }, { cls: "STach", f1: "0.971" }, { cls: "TAb", f1: "0.625" }
         ]
     },
-    chapman: {
-        title: "Chapman-Shaoxing Cohort (10,247 Records)",
-        f1: { fedadam: 0.824, fedprox: 0.806, fedavg: 0.782 },
-        classes: [
-            { name: "AF", f1: 0.912, prec: 0.920, rec: 0.904, std: 0.010 },
-            { name: "NSR", f1: 0.954, prec: 0.960, rec: 0.948, std: 0.006 },
-            { name: "SB", f1: 0.895, prec: 0.910, rec: 0.881, std: 0.011 },
-            { name: "STach", f1: 0.880, prec: 0.895, rec: 0.866, std: 0.014 },
-            { name: "PAC", f1: 0.762, prec: 0.780, rec: 0.745, std: 0.019 }
+    "cpsc": {
+        name: "CPSC-2018 Challenge Cohort",
+        location: "China Cardiovascular Challenge",
+        samples: 6877,
+        macroF1: "0.343",
+        microF1: "0.853",
+        f1Std: "0.3133",
+        dominant: "AF, IAVB, RBBB",
+        scores: [
+            { cls: "AF", f1: "0.781" }, { cls: "IAVB", f1: "0.737" }, { cls: "LAD", f1: "0.000" },
+            { cls: "LBBB", f1: "0.854" }, { cls: "NSIVCB", f1: "0.000" }, { cls: "NSR", f1: "0.414" },
+            { cls: "PAC", f1: "0.292" }, { cls: "QAb", f1: "0.000" }, { cls: "RBBB", f1: "0.241" },
+            { cls: "SB", f1: "0.189" }, { cls: "STach", f1: "0.598" }, { cls: "TAb", f1: "0.011" }
         ]
     },
-    cpsc: {
-        title: "CPSC-2018 Cohort (6,877 Records)",
-        f1: { fedadam: 0.808, fedprox: 0.792, fedavg: 0.768 },
-        classes: [
-            { name: "AF", f1: 0.885, prec: 0.898, rec: 0.872, std: 0.013 },
-            { name: "IAVB", f1: 0.820, prec: 0.840, rec: 0.801, std: 0.016 },
-            { name: "RBBB", f1: 0.915, prec: 0.925, rec: 0.905, std: 0.010 },
-            { name: "PAC", f1: 0.730, prec: 0.752, rec: 0.710, std: 0.022 }
+    "georgia": {
+        name: "Georgia 12-Lead Cohort",
+        location: "Emory University, Atlanta, USA",
+        samples: 10344,
+        macroF1: "0.533",
+        microF1: "0.769",
+        f1Std: "0.2994",
+        dominant: "LAD, PAC, STach",
+        scores: [
+            { cls: "AF", f1: "0.621" }, { cls: "IAVB", f1: "0.745" }, { cls: "LAD", f1: "0.734" },
+            { cls: "LBBB", f1: "0.804" }, { cls: "NSIVCB", f1: "0.093" }, { cls: "NSR", f1: "0.558" },
+            { cls: "PAC", f1: "0.286" }, { cls: "QAb", f1: "0.018" }, { cls: "RBBB", f1: "0.258" },
+            { cls: "SB", f1: "0.925" }, { cls: "STach", f1: "0.920" }, { cls: "TAb", f1: "0.437" }
         ]
     },
-    georgia: {
-        title: "Georgia Emory Cohort (10,344 Records)",
-        f1: { fedadam: 0.816, fedprox: 0.801, fedavg: 0.776 },
-        classes: [
-            { name: "LAD", f1: 0.865, prec: 0.878, rec: 0.852, std: 0.012 },
-            { name: "PAC", f1: 0.775, prec: 0.790, rec: 0.760, std: 0.018 },
-            { name: "STach", f1: 0.902, prec: 0.915, rec: 0.890, std: 0.011 }
+    "ningbo": {
+        name: "Ningbo First Hospital",
+        location: "Ningbo, Zhejiang, China",
+        samples: 34905,
+        macroF1: "0.525",
+        microF1: "0.864",
+        f1Std: "0.3204",
+        dominant: "SB, STach, TAb",
+        scores: [
+            { cls: "AF", f1: "0.000" }, { cls: "IAVB", f1: "0.683" }, { cls: "LAD", f1: "0.581" },
+            { cls: "LBBB", f1: "0.824" }, { cls: "NSIVCB", f1: "0.120" }, { cls: "NSR", f1: "0.790" },
+            { cls: "PAC", f1: "0.415" }, { cls: "QAb", f1: "0.239" }, { cls: "RBBB", f1: "0.132" },
+            { cls: "SB", f1: "0.934" }, { cls: "STach", f1: "0.946" }, { cls: "TAb", f1: "0.630" }
         ]
     },
-    ningbo: {
-        title: "Ningbo First Hospital Cohort (34,905 Records)",
-        f1: { fedadam: 0.828, fedprox: 0.812, fedavg: 0.790 },
-        classes: [
-            { name: "SB", f1: 0.890, prec: 0.902, rec: 0.878, std: 0.012 },
-            { name: "STach", f1: 0.898, prec: 0.910, rec: 0.886, std: 0.011 },
-            { name: "TAb", f1: 0.792, prec: 0.808, rec: 0.777, std: 0.017 }
-        ]
-    },
-    ptbxl: {
-        title: "PTB-XL Germany Cohort (21,837 Records)",
-        f1: { fedadam: 0.835, fedprox: 0.819, fedavg: 0.795 },
-        classes: [
-            { name: "LBBB", f1: 0.938, prec: 0.945, rec: 0.931, std: 0.007 },
-            { name: "NSR", f1: 0.950, prec: 0.958, rec: 0.942, std: 0.007 },
-            { name: "QAb", f1: 0.745, prec: 0.765, rec: 0.726, std: 0.021 }
+    "ptbxl": {
+        name: "PTB-XL Diagnostic Database",
+        location: "Physikalisch-Technische Bundesanstalt, Germany",
+        samples: 21837,
+        macroF1: "0.466",
+        microF1: "0.859",
+        f1Std: "0.3243",
+        dominant: "LBBB, QAb, NSR",
+        scores: [
+            { cls: "AF", f1: "0.772" }, { cls: "IAVB", f1: "0.567" }, { cls: "LAD", f1: "0.554" },
+            { cls: "LBBB", f1: "0.875" }, { cls: "NSIVCB", f1: "0.000" }, { cls: "NSR", f1: "0.897" },
+            { cls: "PAC", f1: "0.286" }, { cls: "QAb", f1: "0.109" }, { cls: "RBBB", f1: "0.000" },
+            { cls: "SB", f1: "0.312" }, { cls: "STach", f1: "0.873" }, { cls: "TAb", f1: "0.349" }
         ]
     }
 };
 
 function showClientF1Table(clientId) {
     document.querySelectorAll('.client-tab-btn').forEach(btn => btn.classList.remove('active'));
-    const tabBtn = document.getElementById(`tab-${clientId}`);
-    if (tabBtn) tabBtn.classList.add('active');
+    const btn = document.getElementById(`tab-${clientId}`);
+    if (btn) btn.classList.add('active');
+    
     renderClientF1Table(clientId);
 }
 
@@ -1301,43 +1372,74 @@ function renderClientF1Table(clientId) {
     const container = document.getElementById('clientF1ScorecardContainer');
     if (!container) return;
     
-    const data = CLIENT_BENCHMARK_DATA[clientId] || CLIENT_BENCHMARK_DATA.all;
-    
-    let tableHtml = `
-        <div class="table-header-info mb-2">
-            <h4 class="text-primary">${data.title}</h4>
-            <span class="text-muted">Macro F1: FedAdam <strong>${data.f1.fedadam}</strong> | FedProx <strong>${data.f1.fedprox}</strong> | FedAvg <strong>${data.f1.fedavg}</strong></span>
-        </div>
-        <table class="table-modern">
-            <thead>
+    if (clientId === 'all') {
+        let rows = '';
+        Object.keys(CLIENT_SCORECARDS).forEach(k => {
+            const c = CLIENT_SCORECARDS[k];
+            rows += `
                 <tr>
-                    <th>Cardiac Pathology</th>
-                    <th>F1 Score</th>
-                    <th>Precision</th>
-                    <th>Recall</th>
-                    <th>Std Dev (σ)</th>
-                    <th>Benchmark Status</th>
+                    <td><strong>${c.name}</strong></td>
+                    <td>${c.samples.toLocaleString()}</td>
+                    <td><span class="badge badge-primary">${c.microF1}</span></td>
+                    <td>${c.macroF1}</td>
+                    <td><code>${c.f1Std}</code></td>
+                    <td class="text-muted">${c.dominant}</td>
                 </tr>
-            </thead>
-            <tbody>
-    `;
-    
-    data.classes.forEach(row => {
-        const pctF1 = (row.f1 * 100).toFixed(1);
-        tableHtml += `
-            <tr>
-                <td><strong>${row.name}</strong></td>
-                <td><span class="f1-badge">${row.f1.toFixed(3)}</span> (${pctF1}%)</td>
-                <td>${row.prec.toFixed(3)}</td>
-                <td>${row.rec.toFixed(3)}</td>
-                <td>± ${row.std.toFixed(3)}</td>
-                <td><span class="badge ${row.f1 >= 0.85 ? 'badge-success' : (row.f1 >= 0.75 ? 'badge-primary' : 'badge-warning')}">${row.f1 >= 0.85 ? 'High Performance' : (row.f1 >= 0.75 ? 'Strong' : 'Moderate')}</span></td>
-            </tr>
+            `;
+        });
+        
+        container.innerHTML = `
+            <table class="benchmark-data-table">
+                <thead>
+                    <tr>
+                        <th>Cohort Node</th>
+                        <th>Records</th>
+                        <th>Micro F1</th>
+                        <th>Macro F1</th>
+                        <th>F1-STD (FedCVD)</th>
+                        <th>Dominant Pathology</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
         `;
-    });
-    
-    tableHtml += `</tbody></table>`;
-    container.innerHTML = tableHtml;
+    } else {
+        const c = CLIENT_SCORECARDS[clientId];
+        if (!c) return;
+        
+        let scoreRows = '';
+        c.scores.forEach(s => {
+            scoreRows += `
+                <tr>
+                    <td><strong>${s.cls}</strong></td>
+                    <td>${CLASS_FULL_NAMES[s.cls] || s.cls}</td>
+                    <td><span class="badge badge-success">${s.f1}</span></td>
+                </tr>
+            `;
+        });
+        
+        container.innerHTML = `
+            <div class="cohort-summary-bar mb-2">
+                <h4>${c.name} <span class="badge badge-outline">${c.location}</span></h4>
+                <div class="cohort-stats-pills mt-1">
+                    <span class="badge badge-info">${c.samples.toLocaleString()} Records</span>
+                    <span class="badge badge-primary">Micro F1: ${c.microF1}</span>
+                    <span class="badge badge-outline">Macro F1: ${c.macroF1}</span>
+                    <span class="badge badge-outline">F1-STD: ${c.f1Std}</span>
+                </div>
+            </div>
+            <table class="benchmark-data-table mt-2">
+                <thead>
+                    <tr>
+                        <th>Class Code</th>
+                        <th>Diagnostic Category</th>
+                        <th>Per-Class F1 Score</th>
+                    </tr>
+                </thead>
+                <tbody>${scoreRows}</tbody>
+            </table>
+        `;
+    }
 }
 
 function initConvergenceChart() {
@@ -1345,42 +1447,42 @@ function initConvergenceChart() {
     if (!ctx) return;
     
     const rounds = Array.from({ length: 30 }, (_, i) => i + 1);
-    const fedAdamF1 = rounds.map(r => 0.45 + (0.362 / (1 + Math.exp(-0.25 * (r - 10)))));
-    const fedProxF1 = rounds.map(r => 0.43 + (0.368 / (1 + Math.exp(-0.22 * (r - 11)))));
-    const fedAvgF1  = rounds.map(r => 0.40 + (0.374 / (1 + Math.exp(-0.18 * (r - 13)))));
+    
+    // Empirical multi-round convergence trajectories
+    const fedavgF1 = [0.24, 0.31, 0.38, 0.44, 0.48, 0.51, 0.53, 0.55, 0.56, 0.57, 0.58, 0.59, 0.60, 0.60, 0.61, 0.61, 0.61, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.62, 0.619];
+    const fedproxF1 = [0.22, 0.28, 0.34, 0.39, 0.42, 0.45, 0.47, 0.48, 0.49, 0.50, 0.51, 0.51, 0.52, 0.52, 0.53, 0.53, 0.53, 0.54, 0.54, 0.54, 0.54, 0.54, 0.54, 0.54, 0.54, 0.54, 0.54, 0.54, 0.54, 0.539];
+    const fedadamF1 = [0.26, 0.35, 0.43, 0.50, 0.55, 0.59, 0.62, 0.64, 0.66, 0.67, 0.68, 0.69, 0.70, 0.70, 0.71, 0.71, 0.71, 0.72, 0.72, 0.72, 0.72, 0.72, 0.73, 0.73, 0.73, 0.73, 0.73, 0.73, 0.73, 0.731];
     
     if (convergenceChartInstance) convergenceChartInstance.destroy();
     
     convergenceChartInstance = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: rounds.map(r => `R${r}`),
+            labels: rounds,
             datasets: [
                 {
-                    label: 'FedAdam (Final: 0.812)',
-                    data: fedAdamF1,
+                    label: 'FedAdam (η=0.01)',
+                    data: fedadamF1,
                     borderColor: '#38bdf8',
                     backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                    borderWidth: 2.5,
-                    tension: 0.3,
-                    fill: false
+                    borderWidth: 2.2,
+                    tension: 0.25,
+                    pointRadius: 0
                 },
                 {
-                    label: 'FedProx (Final: 0.798)',
-                    data: fedProxF1,
+                    label: 'FedAvg Baseline',
+                    data: fedavgF1,
                     borderColor: '#10b981',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: false
-                },
-                {
-                    label: 'FedAvg (Final: 0.774)',
-                    data: fedAvgF1,
-                    borderColor: '#f59e0b',
                     borderWidth: 1.8,
                     borderDash: [4, 4],
-                    tension: 0.3,
-                    fill: false
+                    pointRadius: 0
+                },
+                {
+                    label: 'FedProx (μ=0.001)',
+                    data: fedproxF1,
+                    borderColor: '#f59e0b',
+                    borderWidth: 1.8,
+                    pointRadius: 0
                 }
             ]
         },
@@ -1388,11 +1490,19 @@ function initConvergenceChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'top', labels: { color: '#e2e8f0', font: { family: 'Inter', size: 11 } } }
+                legend: { labels: { color: '#cbd5e1' } }
             },
             scales: {
-                x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 9 } } },
-                y: { grid: { color: 'rgba(255,255,255,0.08)' }, ticks: { color: '#e2e8f0', font: { family: 'JetBrains Mono', size: 10 } }, min: 0.3, max: 0.9 }
+                x: {
+                    title: { display: true, text: 'Federated Round (t)', color: '#94a3b8' },
+                    grid: { color: 'rgba(51, 65, 85, 0.25)' },
+                    ticks: { color: '#94a3b8' }
+                },
+                y: {
+                    title: { display: true, text: 'Macro F1 Score', color: '#94a3b8' },
+                    grid: { color: 'rgba(51, 65, 85, 0.25)' },
+                    ticks: { color: '#94a3b8' }
+                }
             }
         }
     });
@@ -1402,26 +1512,30 @@ function initRadarChart() {
     const ctx = document.getElementById('f1RadarChart');
     if (!ctx) return;
     
-    if (f1RadarChartInstance) f1RadarChartInstance.destroy();
+    const labels = CLASS_NAMES;
+    const fedavgScores = [0.81, 0.77, 0.66, 0.52, 0.04, 0.82, 0.42, 0.33, 0.52, 0.95, 0.97, 0.63];
+    const fedadamScores = [0.85, 0.81, 0.70, 0.61, 0.12, 0.86, 0.49, 0.39, 0.58, 0.96, 0.98, 0.68];
     
-    f1RadarChartInstance = new Chart(ctx, {
+    if (radarChartInstance) radarChartInstance.destroy();
+    
+    radarChartInstance = new Chart(ctx, {
         type: 'radar',
         data: {
-            labels: CLASS_NAMES,
+            labels: labels,
             datasets: [
                 {
                     label: 'FedAdam',
-                    data: [0.892, 0.785, 0.834, 0.921, 0.684, 0.942, 0.745, 0.712, 0.905, 0.876, 0.889, 0.768],
+                    data: fedadamScores,
                     borderColor: '#38bdf8',
                     backgroundColor: 'rgba(56, 189, 248, 0.25)',
                     borderWidth: 2
                 },
                 {
                     label: 'FedAvg',
-                    data: [0.852, 0.741, 0.795, 0.890, 0.620, 0.915, 0.702, 0.665, 0.870, 0.835, 0.848, 0.720],
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                    borderWidth: 1.5
+                    data: fedavgScores,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    borderWidth: 1.6
                 }
             ]
         },
@@ -1429,14 +1543,14 @@ function initRadarChart() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'top', labels: { color: '#e2e8f0', font: { family: 'Inter', size: 11 } } }
+                legend: { labels: { color: '#cbd5e1' } }
             },
             scales: {
                 r: {
-                    angleLines: { color: 'rgba(255,255,255,0.1)' },
-                    grid: { color: 'rgba(255,255,255,0.08)' },
-                    pointLabels: { color: '#e2e8f0', font: { family: 'Inter', size: 10 } },
-                    ticks: { display: false, min: 0.5, max: 1.0 }
+                    grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                    angleLines: { color: 'rgba(51, 65, 85, 0.4)' },
+                    pointLabels: { color: '#e2e8f0', font: { weight: 'bold' } },
+                    ticks: { display: false, max: 1.0 }
                 }
             }
         }
@@ -1444,21 +1558,129 @@ function initRadarChart() {
 }
 
 // ==============================================================================
-// 14. PAGE 4: PATHOLOGY GUIDE (12-CLASS ENCYCLOPEDIA)
+// 14. PAGE 4: PATHOLOGY GUIDE (EXPANDED 12-CLASS ENCYCLOPEDIA)
 // ==============================================================================
 const PATHOLOGY_ENCYCLOPEDIA = [
-    { code: "AF", snomed: "164889003", name: "Atrial Fibrillation", cat: "arrhythmia", criteria: "Irregularly irregular RR cadence, absent discrete P-waves, fibrillatory f-waves (350-600 bpm)." },
-    { code: "IAVB", snomed: "270492004", name: "1st-Degree AV Block", cat: "block", criteria: "Prolonged PR interval > 200 ms with constant 1:1 AV conduction." },
-    { code: "LAD", snomed: "164873001", name: "Left Axis Deviation", cat: "morphology", criteria: "Frontal QRS axis between -30° and -90°, positive in Lead I, predominantly negative in Lead II/aVF." },
-    { code: "LBBB", snomed: "164909002", name: "Left Bundle Branch Block", cat: "block", criteria: "Wide QRS >= 120 ms, broad notched/monophasic R in lateral leads (I, aVL, V5-V6), deep QS in V1." },
-    { code: "NSIVCB", snomed: "698252002", name: "Non-Specific Intraventricular Block", cat: "block", criteria: "QRS duration > 110 ms not meeting typical LBBB or RBBB criteria." },
-    { code: "NSR", snomed: "426783006", name: "Normal Sinus Rhythm", cat: "normal", criteria: "Upright P-waves in Lead II, HR 60-100 bpm, normal PR (120-200ms) and QRS (<120ms)." },
-    { code: "PAC", snomed: "284470004", name: "Premature Atrial Contraction", cat: "arrhythmia", criteria: "Early abnormal P-wave morphology followed by normal narrow QRS and non-compensatory pause." },
-    { code: "QAb", snomed: "164917005", name: "Abnormal Q-Wave (Myocardial Infarct)", cat: "morphology", criteria: "Pathological Q-wave duration > 40 ms or depth > 25% of subsequent R-wave amplitude." },
-    { code: "RBBB", snomed: "59118001", name: "Right Bundle Branch Block", cat: "block", criteria: "Wide QRS >= 120 ms, classic rsR' ('rabbit ears') in V1-V2, wide slurred S-wave in I and V6." },
-    { code: "SB", snomed: "426177001", name: "Sinus Bradycardia", cat: "normal", criteria: "Regular sinus rhythm with resting ventricular rate under 60 bpm." },
-    { code: "STach", snomed: "427084000", name: "Sinus Tachycardia", cat: "arrhythmia", criteria: "Regular sinus rhythm with resting ventricular rate exceeding 100 bpm." },
-    { code: "TAb", snomed: "164934002", name: "T-Wave Abnormality", cat: "morphology", criteria: "Inverted, flattened, biphasic, or hyperacute T-waves reflecting ischemia or strain." }
+    {
+        code: "AF",
+        snomed: "164889003",
+        name: "Atrial Fibrillation",
+        cat: "arrhythmia",
+        desc: "Rapid, disorganized atrial electrical activation (350–600 bpm) with loss of coordinated atrial contraction and irregular ventricular conduction.",
+        criteria: "Irregularly irregular RR intervals; absence of discrete P waves; presence of irregular fibrillatory (f) waves; variable ventricular rate.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 Q 10,18 20,22 T 40,20 T 60,22 L 65,5 L 70,35 L 75,20 T 95,18 T 115,22 L 120,4 L 125,36 L 130,20 T 150,22 T 180,18 L 185,5 L 190,35 L 195,20 L 200,20" fill="none" stroke="#38bdf8" stroke-width="1.6"/></svg>`,
+        precautions: "Assess thromboembolic risk (CHA2DS2-VASc score) for anticoagulation. Initiate ventricular rate control; monitor for hemodynamic collapse."
+    },
+    {
+        code: "IAVB",
+        snomed: "270492004",
+        name: "First-Degree AV Block",
+        cat: "block",
+        desc: "Fixed conduction delay in the atrioventricular (AV) node or His-Purkinje system with preserved 1:1 atrioventricular conduction.",
+        criteria: "PR interval consistently prolonged > 200 ms (5 small squares); every P wave is followed by a QRS complex with constant PR duration.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 20,20 Q 30,13 40,20 L 75,20 L 80,3 L 85,37 L 90,20 L 100,20 Q 115,10 130,20 L 200,20" fill="none" stroke="#38bdf8" stroke-width="1.6"/></svg>`,
+        precautions: "Review AV nodal blocking medications (beta-blockers, non-DHP CCBs, digoxin). Monitor for progression to higher-grade heart block."
+    },
+    {
+        code: "LAD",
+        snomed: "164873001",
+        name: "Left Axis Deviation",
+        cat: "morphology",
+        desc: "Mean frontal plane QRS electrical axis shifted between -30° and -90°, often indicative of left anterior fascicular block or LVH.",
+        criteria: "QRS predominantly positive in Lead I; predominantly negative (deep S wave) in Leads II, III, and aVF.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 40,20 L 45,2 L 50,28 L 55,20 L 80,20 Q 95,12 110,20 L 140,20 L 145,2 L 150,28 L 155,20 L 200,20" fill="none" stroke="#38bdf8" stroke-width="1.6"/></svg>`,
+        precautions: "Evaluate for structural hypertension, ischemic cardiomyopathy, or left ventricular hypertrophy. Correlate with echocardiography."
+    },
+    {
+        code: "LBBB",
+        snomed: "164909002",
+        name: "Left Bundle Branch Block",
+        cat: "block",
+        desc: "Interruption or severe delay in left bundle branch conduction, causing delayed left ventricular activation via transseptal spread.",
+        criteria: "QRS duration >= 120 ms; broad notched or slurred R waves in lateral leads (I, aVL, V5, V6); absence of septal Q waves; deep QS/rS in V1-V2.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 30,20 Q 40,15 50,20 L 60,20 L 65,4 Q 70,7 75,3 L 85,25 L 90,20 Q 105,28 120,20 L 200,20" fill="none" stroke="#38bdf8" stroke-width="1.6"/></svg>`,
+        precautions: "New-onset LBBB is considered an acute coronary syndrome equivalent in symptomatic patients. Evaluate for ischemic disease or heart failure."
+    },
+    {
+        code: "NSIVCB",
+        snomed: "698252002",
+        name: "Nonspecific Intraventricular Conduction Delay",
+        cat: "block",
+        desc: "Intraventricular conduction slowing exceeding normal duration but lacking typical morphologic criteria for either LBBB or RBBB.",
+        criteria: "QRS duration > 110 ms without classic rsR' pattern in V1 or broad monophasic R wave in lateral leads.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 40,20 Q 50,15 60,20 L 70,20 L 76,8 L 82,32 L 88,20 Q 105,14 120,20 L 200,20" fill="none" stroke="#38bdf8" stroke-width="1.6"/></svg>`,
+        precautions: "Assess for electrolyte derangements (severe hyperkalemia), antiarrhythmic drug toxicity (Class IC/IA), or infiltrative cardiomyopathy."
+    },
+    {
+        code: "NSR",
+        snomed: "426783006",
+        name: "Normal Sinus Rhythm",
+        cat: "normal",
+        desc: "Physiological cardiac pacemaker rhythm originating in the Sinoatrial (SA) node with intact atrioventricular and intraventricular conduction.",
+        criteria: "Resting heart rate 60–100 bpm; regular rhythm; uniform upright P waves in leads I and II; constant PR interval (120–200 ms); narrow QRS (<120 ms).",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 25,20 Q 35,13 45,20 L 55,20 L 60,3 L 65,37 L 70,20 L 80,20 Q 95,11 110,20 L 200,20" fill="none" stroke="#10b981" stroke-width="1.6"/></svg>`,
+        precautions: "Normal physiological cardiovascular baseline. Routine preventive screening indicated; no acute antiarrhythmic intervention required."
+    },
+    {
+        code: "PAC",
+        snomed: "284470004",
+        name: "Premature Atrial Contraction",
+        cat: "arrhythmia",
+        desc: "Premature cardiac depolarization originating from an ectopic atrial focus outside the sinoatrial node, resetting SA node timing.",
+        criteria: "Early ectopic P wave with different morphology than sinus P; followed by narrow QRS complex and an incomplete compensatory pause.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 20,20 Q 28,14 36,20 L 44,20 L 48,4 L 52,36 L 56,20 L 70,20 Q 76,11 82,20 L 86,20 L 90,4 L 94,36 L 98,20 L 130,20 L 200,20" fill="none" stroke="#38bdf8" stroke-width="1.6"/></svg>`,
+        precautions: "Usually benign. Frequent PACs (>100/day) may trigger paroxysmal atrial fibrillation or flutter. Reduce caffeine, nicotine, and adrenergic stress."
+    },
+    {
+        code: "QAb",
+        snomed: "164917005",
+        name: "Abnormal / Pathological Q-Wave",
+        cat: "morphology",
+        desc: "Initial negative deflection of the QRS complex reflecting transmural electrical silence from previous myocardial necrosis or acute infarction.",
+        criteria: "Q-wave duration >= 40 ms (1 small square) or depth > 25% of the subsequent R-wave amplitude in two anatomically contiguous leads.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 30,20 Q 40,14 50,20 L 58,20 L 63,35 L 68,2 L 73,20 L 85,20 Q 100,12 115,20 L 200,20" fill="none" stroke="#f43f5e" stroke-width="1.6"/></svg>`,
+        precautions: "Strong marker of past or acute transmural myocardial infarction. Immediate correlation with cardiac troponin, echocardiogram, and prior tracings."
+    },
+    {
+        code: "RBBB",
+        snomed: "59118001",
+        name: "Right Bundle Branch Block",
+        cat: "block",
+        desc: "Conduction block in right bundle branch, delaying right ventricular activation via slow transeptal spread from the left ventricle.",
+        criteria: "QRS duration >= 120 ms; classic rsR' ('rabbit ears') pattern in anterior precordial leads V1-V2; wide slurred S wave in lateral leads I and V6.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 30,20 Q 40,15 50,20 L 60,20 L 64,12 L 67,26 L 73,4 L 78,20 L 90,20 Q 105,28 120,20 L 200,20" fill="none" stroke="#38bdf8" stroke-width="1.6"/></svg>`,
+        precautions: "Can be idiopathic or secondary to right ventricular strain, pulmonary embolism, ASD, or COPD. Correlate with respiratory status."
+    },
+    {
+        code: "SB",
+        snomed: "426177001",
+        name: "Sinus Bradycardia",
+        cat: "normal",
+        desc: "Normal sinoatrial pacemaker conduction with resting ventricular depolarization rate falling below 60 beats per minute.",
+        criteria: "P wave morphology normal and upright in lead II; constant PR interval (120-200 ms); regular rhythm with rate < 60 bpm.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 40,20 Q 50,14 60,20 L 70,20 L 75,3 L 80,37 L 85,20 L 95,20 Q 110,12 125,20 L 200,20" fill="none" stroke="#10b981" stroke-width="1.6"/></svg>`,
+        precautions: "Frequently physiological in athletes and during sleep. If symptomatic (fatigue, presyncope, syncope), review chronotropes; assess sick sinus syndrome."
+    },
+    {
+        code: "STach",
+        snomed: "427084000",
+        name: "Sinus Tachycardia",
+        cat: "arrhythmia",
+        desc: "Normal sinoatrial pacing accelerating above 100 beats per minute in response to sympathetic activation, illness, or adrenergic stimuli.",
+        criteria: "Normal sinus P waves with constant PR interval preceding each QRS; rate > 100 bpm (typically 100–160 bpm); gradual onset and offset.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 10,20 Q 18,14 26,20 L 32,20 L 36,4 L 40,36 L 44,20 L 52,20 Q 62,12 72,20 L 80,20 Q 88,14 96,20 L 102,20 L 106,4 L 110,36 L 114,20 L 200,20" fill="none" stroke="#f59e0b" stroke-width="1.6"/></svg>`,
+        precautions: "Identify and treat secondary triggers: fever, hypovolemia, acute blood loss, sepsis, hyperthyroidism, pulmonary embolism, or anxiety."
+    },
+    {
+        code: "TAb",
+        snomed: "164934002",
+        name: "T-Wave Abnormality",
+        cat: "morphology",
+        desc: "Repolarization abnormality presenting as T-wave inversion, flattening, biphasic contour, or hyperacute elevation.",
+        criteria: "T-wave inversion >= 1 mm in two contiguous leads (excluding aVR and V1); flattened T waves (< 1 mm); or asymmetric deep repolarization changes.",
+        svg: `<svg viewBox="0 0 200 40"><path d="M 0,20 L 30,20 Q 40,14 50,20 L 58,20 L 63,4 L 68,36 L 73,20 L 85,20 Q 98,32 112,20 L 200,20" fill="none" stroke="#f43f5e" stroke-width="1.6"/></svg>`,
+        precautions: "High sensitivity for subendocardial ischemia, strain patterns, or severe electrolyte imbalances (hypokalemia, hyperkalemia). Serial troponins recommended."
+    }
 ];
 
 let activeGuideCategory = 'all';
@@ -1487,7 +1709,8 @@ function initPathologyGuideGrid(searchTerm = '') {
             p.name.toLowerCase().includes(searchTerm) || 
             p.code.toLowerCase().includes(searchTerm) || 
             p.snomed.includes(searchTerm) || 
-            p.criteria.toLowerCase().includes(searchTerm);
+            p.criteria.toLowerCase().includes(searchTerm) ||
+            p.desc.toLowerCase().includes(searchTerm);
         return matchesCat && matchesSearch;
     });
     
@@ -1507,9 +1730,23 @@ function initPathologyGuideGrid(searchTerm = '') {
                 </div>
                 <span class="badge badge-outline">SNOMED: ${item.snomed}</span>
             </div>
+            <div class="pathology-svg-wrap" title="Schematic ECG morphology representation for ${item.name}">
+                ${item.svg}
+            </div>
             <div class="guide-card-body mt-2">
-                <p class="text-muted"><strong>12-Lead Diagnostic Criteria:</strong></p>
-                <p class="mt-1">${item.criteria}</p>
+                <p class="text-muted" style="font-size: 0.86rem; line-height: 1.5;">${item.desc}</p>
+                <div class="criteria-box mt-2" style="background: rgba(3, 7, 18, 0.4); padding: 0.6rem; border-radius: 0.35rem; font-size: 0.84rem;">
+                    <strong class="text-primary"><i class="fa-solid fa-microscope mr-1"></i> Diagnostic Criteria:</strong>
+                    <p class="mt-1">${item.criteria}</p>
+                </div>
+                <div class="precautions-box mt-2" style="font-size: 0.82rem; color: #cbd5e1;">
+                    <strong class="text-warning"><i class="fa-solid fa-shield-heart mr-1"></i> Clinical Precautions:</strong>
+                    <p class="mt-1">${item.precautions}</p>
+                </div>
+            </div>
+            <div class="pathology-meta-row">
+                <span>Model Target: <strong>Supported</strong></span>
+                <span>Category: <strong style="text-transform: capitalize;">${item.cat}</strong></span>
             </div>
         `;
         grid.appendChild(card);
