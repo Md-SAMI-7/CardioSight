@@ -16,8 +16,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="styles.css?v=2.2.0">
+    
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#030712">
 </head>
@@ -100,8 +100,11 @@
                                     <span class="badge badge-outline" id="matBadge"><i class="fa-solid fa-file-lines"></i> Signal: None</span>
                                 </div>
                                 
-                                <div class="drop-btn-row mt-2">
+                                <div class="drop-btn-row mt-2" style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
                                     <span class="browse-btn"><i class="fa-solid fa-folder-open"></i> Browse Files (.hea + .mat)</span>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="loadDemoBtn" onclick="loadDemoRecord(event)" style="border-radius: 6px; padding: 6px 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.35); color: #60a5fa;">
+                                        <i class="fa-solid fa-flask-vial"></i> Load Demo Record (JS00001: AF)
+                                    </button>
                                 </div>
                             </div>
 
@@ -656,6 +659,6 @@
             <button class="b-nav-item" onclick="switchSection('about')"><i class="fa-solid fa-users"></i><span>5. About</span></button>
         </nav>
     </div>
-    <script src="app.js"></script>
+    <script src="app.js?v=2.2.0"></script>
 </body>
 </html>
