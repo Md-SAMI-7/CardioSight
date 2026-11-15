@@ -31,7 +31,12 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
     font-family: var(--font-sans);
-    background-color: var(--bg-dark);
+    background: 
+        radial-gradient(circle at 18% 15%, rgba(14, 165, 233, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 82% 25%, rgba(99, 102, 241, 0.10) 0%, transparent 45%),
+        radial-gradient(circle at 50% 0%, #0d1e3d 0%, #060e20 45%, #030712 90%);
+    background-color: #030712;
+    background-attachment: fixed;
     color: var(--text-main);
     line-height: 1.5;
     min-height: 100vh;

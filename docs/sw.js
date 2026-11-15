@@ -1,23 +1,24 @@
-const CACHE_NAME = 'cardiosight-v1';
-const ASSETS_TO_CACHE = [
-    './',
-    './index.html',
-    './styles.css',
-    './app.js',
-    './manifest.json',
-    './figures/architecture.png',
-    './figures/shap_beeswarm_AF.png',
-    './figures/shap_beeswarm_NSR.png'
-];
+const CACHE_NAME = 'cardiosight-v2.7.0';
 
 self.addEventListener('install', (e) => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
     e.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+        caches.keys().then((keys) => {
+            return Promise.all(
+                keys.map((key) => {
+                    return caches.delete(key);
+                })
+            );
+        }).then(() => self.clients.claim())
     );
 });
 
+// Network-first strategy: Always fetch live updates
 self.addEventListener('fetch', (e) => {
     e.respondWith(
-        caches.match(e.request).then((res) => res || fetch(e.request))
+        fetch(e.request).catch(() => caches.match(e.request))
     );
 });
