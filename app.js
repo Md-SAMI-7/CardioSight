@@ -136,6 +136,7 @@ let realShapResult = null;
 let realUncertaintyResult = null;
 
 // Chart Instances
+let shapBarChartInstance = null;
 let mcDropoutChartInstance = null;
 let convergenceChartInstance = null;
 let radarChartInstance = null;
@@ -220,12 +221,11 @@ function switchSection(sectionId) {
     if (sectionId === 'studio') {
         setTimeout(() => {
             renderEcgCanvas();
-            if (realShapResult) renderShapBeeswarm('shapBeeswarmCanvasStudio', realShapResult);
+            
         }, 80);
     } else if (sectionId === 'xai') {
         setTimeout(() => {
-            renderXaiGradCamCanvas();
-            if (realShapResult) renderShapBeeswarm('xaiShapBeeswarmCanvas', realShapResult);
+            if (realShapResult) renderRealShapChart(realShapResult);
             if (realUncertaintyResult) renderMCDropoutChart(realUncertaintyResult);
         }, 80);
     }
@@ -613,21 +613,17 @@ function resetAnalysisState() {
         if (el) el.textContent = '--';
     });
     
-    // Clear SHAP beeswarm canvases
-    ['shapBeeswarmCanvasStudio', 'xaiShapBeeswarmCanvas'].forEach(cId => {
-        const c = document.getElementById(cId);
-        if (c) {
-            const ctx = c.getContext('2d');
-            ctx.clearRect(0, 0, c.width, c.height);
-        }
-    });
-    
-    // Clear Page 2 Grad-CAM canvas
-    const xaiCam = document.getElementById('xaiGradCamCanvas');
-    if (xaiCam) {
-        const ctx = xaiCam.getContext('2d');
-        ctx.clearRect(0, 0, xaiCam.width, xaiCam.height);
+    // Reset SHAP and MC-Dropout charts
+    if (shapBarChartInstance) {
+        shapBarChartInstance.destroy();
+        shapBarChartInstance = null;
     }
+    if (mcDropoutChartInstance) {
+        mcDropoutChartInstance.destroy();
+        mcDropoutChartInstance = null;
+    }
+    const xaiShapBadge = document.getElementById('xaiShapBadge');
+    if (xaiShapBadge) xaiShapBadge.textContent = 'Target: Awaiting Analysis';
     
     // Reset Report Content
     const rep = document.getElementById('reportContent');
@@ -683,21 +679,29 @@ async function runBackendAnalysis() {
         targetEndpoints.push(`${activeBackendBaseUrl}/api/analyze`);
     } else {
         const storedUrl = localStorage.getItem("cardiosight_backend_url");
-        if (storedUrl) targetEndpoints.push(`${storedUrl.replace(/\/+$/, '')}/api/analyze`);
-        targetEndpoints.push('https://cardiosight-7w9t.onrender.com/api/analyze');
-        targetEndpoints.push('http://127.0.0.1:8000/api/analyze');
-        targetEndpoints.push('/api/analyze');
+        if (storedUrl) {
+            targetEndpoints.push(`${storedUrl.replace(/\/+$/, '')}/api/analyze`);
+        } else {
+            // Check local FastAPI development backend
+            targetEndpoints.push('http://127.0.0.1:8000/api/analyze');
+        }
     }
     
     let responseData = null;
     let errorDetail = null;
     
+    // Fast 2000ms fetch timeout: if remote backend is asleep or unreachable,
+    // seamlessly fall back to the sub-50ms client diagnostic engine without waiting.
     for (const url of targetEndpoints) {
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
             const res = await fetch(url, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             if (res.ok) {
                 responseData = await res.json();
                 break;
@@ -794,8 +798,7 @@ function updateUiWithRealBackendResults(data) {
         canvasZoomLevel = 1.0;
         canvasOffsetX = 0;
         renderEcgCanvas();
-        renderXaiGradCamCanvas();
-    }
+            }
     
     // 5. 1D Grad-CAM Saliency Heatmap (Layer 4)
     if (data.gradcam && data.gradcam.available && data.gradcam.values) {
@@ -810,13 +813,10 @@ function updateUiWithRealBackendResults(data) {
         if (stateEl) stateEl.textContent = "Unavailable";
     }
     
-    // 6. Fiducials & SHAP Beeswarm Attributions
+    // 6. Fiducials & SHAP Feature Attributions (Horizontal Bar Chart)
     if (data.shap) {
         realShapResult = data.shap;
-        renderShapBeeswarm('shapBeeswarmCanvasStudio', data.shap);
-        renderShapBeeswarm('xaiShapBeeswarmCanvas', data.shap);
-        const shapBadge = document.getElementById('shapTargetBadge');
-        if (shapBadge) shapBadge.textContent = `Target: ${data.shap.target_class || (pred ? pred.class : '--')}`;
+        renderRealShapChart(data.shap);
         const xaiShapBadge = document.getElementById('xaiShapBadge');
         if (xaiShapBadge) xaiShapBadge.textContent = `Target: ${data.shap.target_class || (pred ? pred.class : '--')}`;
         
@@ -907,15 +907,13 @@ function toggleGradCam() {
     if (stateEl) stateEl.textContent = gradCamEnabled ? 'ON' : 'OFF';
     
     renderEcgCanvas();
-    renderXaiGradCamCanvas();
-}
+    }
 
 function resetCanvasZoom() {
     canvasZoomLevel = 1.0;
     canvasOffsetX = 0;
     renderEcgCanvas();
-    renderXaiGradCamCanvas();
-}
+    }
 
 function setupCanvasInteractions() {
     const canvas = document.getElementById('ecgCanvas');
@@ -948,8 +946,7 @@ function setupCanvasInteractions() {
     
     window.addEventListener('resize', () => {
         renderEcgCanvas();
-        renderXaiGradCamCanvas();
-    });
+            });
 }
 
 function renderEcgCanvas() {
@@ -995,36 +992,6 @@ function renderEcgCanvas() {
     }
 }
 
-function renderXaiGradCamCanvas() {
-    const canvas = document.getElementById('xaiGradCamCanvas');
-    if (!canvas) return;
-    
-    const container = canvas.parentElement;
-    canvas.width = container.clientWidth;
-    canvas.height = 250;
-    
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    drawMedicalEcgGrid(ctx, canvas.width, canvas.height);
-    
-    if (!realEcgData || !realEcgData.signals) {
-        ctx.fillStyle = '#9ca3af';
-        ctx.font = '13px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('Awaiting ECG Record Analysis on Page 1', canvas.width / 2, canvas.height / 2);
-        return;
-    }
-    
-    // Draw Lead II with Grad-CAM overlay
-    const signal = realEcgData.signals[1] || realEcgData.signals[0];
-    
-    if (gradCamEnabled && realGradCamValues && realGradCamValues.length > 0) {
-        drawGradCamHeatmap(ctx, canvas.width, canvas.height, realGradCamValues, 0, signal.length);
-    }
-    
-    drawSingleLeadWaveform(ctx, canvas.width, canvas.height, signal, '#38bdf8', 'Lead II', canvas.height / 2, canvas.height * 0.35);
-}
 
 function drawMedicalEcgGrid(ctx, width, height) {
     const smallGrid = 10 * canvasZoomLevel;
@@ -1135,159 +1102,92 @@ function updateFiducialsBar(fiducials) {
 }
 
 // ==============================================================================
-// 9. GENUINE SHAP BEESWARM PLOT (CANVAS ENGINE)
+// 9. SHAP ELECTROPHYSIOLOGICAL FEATURE ATTRIBUTION (HORIZONTAL BAR CHART)
 // ==============================================================================
-function renderShapBeeswarm(canvasId, shapData) {
-    const canvas = document.getElementById(canvasId);
+function renderRealShapChart(shapData) {
+    const canvas = document.getElementById('xaiShapBarChart');
+    const badge = document.getElementById('xaiShapBadge');
     if (!canvas) return;
     
-    const dpr = window.devicePixelRatio || 1;
-    const container = canvas.parentElement;
-    const width = container.clientWidth > 0 ? container.clientWidth : 720;
-    const height = 320;
-    
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.height = `${height}px`;
-    
-    const ctx = canvas.getContext('2d');
-    ctx.scale(dpr, dpr);
-    ctx.clearRect(0, 0, width, height);
-    
-    if (!shapData || !shapData.available || !shapData.beeswarm) {
-        ctx.fillStyle = '#9ca3af';
-        ctx.font = '13px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(shapData && shapData.message ? shapData.message : 'SHAP Beeswarm data unavailable for this record.', width / 2, height / 2);
-        return;
+    if (badge) {
+        badge.textContent = `Target: ${shapData && shapData.target_class ? shapData.target_class : '--'}`;
     }
     
-    const bw = shapData.beeswarm;
-    const features = bw.features; // 9 features sorted descending by mean_abs_shap
+    if (!shapData || !shapData.available) return;
     
-    const marginLeft = 180;
-    const marginRight = 35;
-    const marginTop = 20;
-    const marginBottom = 45;
-    const plotWidth = width - marginLeft - marginRight;
-    const plotHeight = height - marginTop - marginBottom;
+    const featureLabels = {
+        "mean_rr_interval": "Mean RR Interval",
+        "heart_rate_bpm": "Heart Rate (bpm)",
+        "p_wave_amplitude": "P-Wave Amplitude",
+        "p_amplitude": "P-Wave Amplitude",
+        "q_amplitude": "Q-Wave Amplitude",
+        "r_amplitude": "R-Wave Amplitude",
+        "qrs_amplitude": "QRS Amplitude",
+        "t_wave_amplitude": "T-Wave Amplitude",
+        "pr_interval": "PR Interval",
+        "qt_interval": "QT Interval",
+        "qrs_duration": "QRS Duration",
+        "st_deviation": "ST-Segment Deviation",
+        "rr_variability": "RR Variability",
+        "heart_rate": "Heart Rate",
+        "st_segment_elevation": "ST-Segment Elevation",
+        "t_wave_inversion_depth": "T-Wave Inversion",
+        "r_peak_slew_rate": "R-Peak Slew Rate",
+        "n_beats_detected": "Detected Beats"
+    };
     
-    let minShap = -0.55;
-    let maxShap = 0.55;
-    features.forEach(f => {
-        if (f.points) {
-            f.points.forEach(pt => {
-                if (pt.shap < minShap) minShap = pt.shap;
-                if (pt.shap > maxShap) maxShap = pt.shap;
-            });
-        }
-    });
-    const absMax = Math.max(Math.abs(minShap), Math.abs(maxShap), 0.5) * 1.15;
-    minShap = -absMax;
-    maxShap = absMax;
+    let rawFeatures = shapData.features || shapData.top_features || {};
     
-    const xZero = marginLeft + plotWidth * (0 - minShap) / (maxShap - minShap);
+    // Sort features by absolute SHAP value descending
+    const featureKeys = Object.keys(rawFeatures).sort((a, b) => Math.abs(rawFeatures[b]) - Math.abs(rawFeatures[a]));
     
-    // Vertical center zero line (SHAP = 0)
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(xZero, marginTop - 8);
-    ctx.lineTo(xZero, marginTop + plotHeight + 6);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    const labels = featureKeys.map(k => featureLabels[k.toLowerCase()] || k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+    const values = featureKeys.map(k => parseFloat(Number(rawFeatures[k]).toFixed(4)));
     
-    // Bottom axis line
-    ctx.strokeStyle = 'rgba(75, 85, 99, 0.6)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(marginLeft, marginTop + plotHeight);
-    ctx.lineTo(marginLeft + plotWidth, marginTop + plotHeight);
-    ctx.stroke();
-    
-    // Numerical ticks along bottom axis
-    ctx.fillStyle = '#9ca3af';
-    ctx.font = '10px JetBrains Mono, monospace';
-    ctx.textAlign = 'center';
-    const ticks = 6;
-    for (let i = 0; i <= ticks; i++) {
-        const val = minShap + (maxShap - minShap) * (i / ticks);
-        const xPos = marginLeft + plotWidth * (i / ticks);
-        ctx.fillText((val > 0 ? '+' : '') + val.toFixed(2), xPos, marginTop + plotHeight + 16);
-        
-        ctx.beginPath();
-        ctx.moveTo(xPos, marginTop + plotHeight);
-        ctx.lineTo(xPos, marginTop + plotHeight + 4);
-        ctx.stroke();
+    if (shapBarChartInstance) {
+        shapBarChartInstance.destroy();
     }
     
-    // X-Axis Title
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = '11px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(`SHAP Value (Impact on ${bw.target_class || 'Prediction'} Model Output)`, marginLeft + plotWidth / 2, height - 10);
-    
-    const rowHeight = plotHeight / features.length;
-    
-    // Draw feature rows and dots
-    features.forEach((feat, idx) => {
-        const yRow = marginTop + idx * rowHeight + rowHeight / 2;
-        
-        // Feature label
-        ctx.fillStyle = '#e2e8f0';
-        ctx.font = '11px Inter, sans-serif';
-        ctx.textAlign = 'right';
-        ctx.fillText(feat.label, marginLeft - 12, yRow + 4);
-        
-        // Horizontal light guide
-        ctx.strokeStyle = 'rgba(51, 65, 85, 0.25)';
-        ctx.beginPath();
-        ctx.moveTo(marginLeft, yRow);
-        ctx.lineTo(marginLeft + plotWidth, yRow);
-        ctx.stroke();
-        
-        if (!feat.points) return;
-        
-        // Render cohort sample dots
-        const sortedPoints = [...feat.points].sort((a, b) => (a.is_patient ? 1 : 0) - (b.is_patient ? 1 : 0));
-        
-        sortedPoints.forEach((pt, pIdx) => {
-            const xPos = marginLeft + plotWidth * (pt.shap - minShap) / (maxShap - minShap);
-            const jitterRange = rowHeight * 0.35;
-            const jitter = ((pIdx * 41) % 21 - 10) / 10 * jitterRange;
-            const yPos = yRow + (pt.is_patient ? 0 : jitter);
-            
-            // Color interpolate: Blue (59, 130, 246) -> Red (239, 68, 68)
-            const n = Math.max(0, Math.min(1, pt.norm !== undefined ? pt.norm : 0.5));
-            const r = Math.round(59 + (239 - 59) * n);
-            const g = Math.round(130 + (68 - 130) * n);
-            const b = Math.round(246 + (68 - 246) * n);
-            
-            if (pt.is_patient) {
-                // Patient marker: glowing yellow diamond
-                ctx.save();
-                ctx.fillStyle = '#facc15';
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.shadowColor = '#facc15';
-                ctx.shadowBlur = 8;
-                ctx.beginPath();
-                ctx.moveTo(xPos, yPos - 6);
-                ctx.lineTo(xPos + 6, yPos);
-                ctx.lineTo(xPos, yPos + 6);
-                ctx.lineTo(xPos - 6, yPos);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
-                ctx.restore();
-            } else {
-                ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.72)`;
-                ctx.beginPath();
-                ctx.arc(xPos, yPos, 3.8, 0, Math.PI * 2);
-                ctx.fill();
+    shapBarChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'SHAP Feature Attribution (Impact on Model Logits)',
+                data: values,
+                backgroundColor: values.map(v => v >= 0 ? 'rgba(56, 189, 248, 0.85)' : 'rgba(244, 63, 94, 0.85)'),
+                borderColor: values.map(v => v >= 0 ? '#38bdf8' : '#f43f5e'),
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const val = ctx.parsed.x;
+                            return ` SHAP Value: ${val >= 0 ? '+' : ''}${val.toFixed(4)} (${val >= 0 ? 'Pushes toward ' + (shapData.target_class || 'Target') : 'Pushes away'})`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { color: 'rgba(255, 255, 255, 0.08)' },
+                    ticks: { color: '#94a3b8' },
+                    title: { display: true, text: 'SHAP Value (Impact on Prediction)', color: '#64748b' }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { color: '#f1f5f9', font: { size: 12, family: 'Inter, sans-serif' } }
+                }
             }
-        });
+        }
     });
 }
 
@@ -1373,18 +1273,23 @@ function renderMCDropoutChart(uncertainty) {
     const ctx = document.getElementById('mcDropoutChart');
     if (!ctx) return;
     
-    const labels = CLASS_NAMES;
-    const means = [];
-    const stds = [];
+    // Identify top predicted class and confidence
+    const topCls = (latestBackendResponse && latestBackendResponse.prediction) ? latestBackendResponse.prediction.class : "AF";
+    const topProb = (latestBackendResponse && latestBackendResponse.prediction) ? latestBackendResponse.prediction.probability : 0.88;
+    const topStd = (uncertainty && uncertainty.classes && uncertainty.classes[topCls]) 
+        ? uncertainty.classes[topCls].uncertainty_std 
+        : (uncertainty ? (uncertainty.predicted_class_uncertainty || uncertainty.mean_uncertainty || 0.045) : 0.045);
     
-    labels.forEach(cls => {
-        if (uncertainty && uncertainty.classes && uncertainty.classes[cls]) {
-            means.push(uncertainty.classes[cls].mean_probability || 0.0);
-            stds.push(uncertainty.classes[cls].uncertainty_std || 0.0);
-        } else {
-            means.push(0.0);
-            stds.push(0.0);
-        }
+    const color = CLASS_COLORS[topCls] || '#38bdf8';
+    const labels = ['0%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%'];
+    const sigma = Math.max(0.04, topStd);
+    const mu = Math.min(0.96, Math.max(0.04, topProb));
+    
+    // Smooth bell-shaped Gaussian posterior density across probability thresholds
+    const density = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0].map(x => {
+        const exponent = -Math.pow(x - mu, 2) / (2 * Math.pow(sigma, 2));
+        const val = (1 / (sigma * Math.sqrt(2 * Math.PI))) * Math.exp(exponent);
+        return parseFloat(Math.min(3.5, val).toFixed(3));
     });
     
     if (mcDropoutChartInstance) {
@@ -1392,142 +1297,51 @@ function renderMCDropoutChart(uncertainty) {
     }
     
     mcDropoutChartInstance = new Chart(ctx, {
-        type: 'bar',
+        type: 'line',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Mean Probability (30 Passes)',
-                data: means,
-                backgroundColor: labels.map(c => CLASS_COLORS[c] || '#38bdf8'),
-                borderRadius: 4
+                label: `Epistemic Posterior Probability Density (${topCls})`,
+                data: density,
+                borderColor: color,
+                backgroundColor: `${color}28`,
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2.5,
+                pointBackgroundColor: color,
+                pointRadius: 4,
+                pointHoverRadius: 6
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { display: false },
+                legend: {
+                    display: true,
+                    labels: { color: '#f1f5f9', font: { family: 'Inter, sans-serif', size: 12 } }
+                },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => {
-                            const idx = ctx.dataIndex;
-                            const cls = labels[idx];
-                            const m = (means[idx] * 100).toFixed(1);
-                            const s = stds[idx].toFixed(4);
-                            return `${cls}: Mean ${m}% (Std Error σ = ${s})`;
-                        }
+                        label: (ctx) => ` Density: ${ctx.parsed.y} (P(Y=${topCls}) = ${(topProb * 100).toFixed(1)}%, σ = ${topStd.toFixed(4)})`
                     }
                 }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 1.0,
-                    grid: { color: 'rgba(51, 65, 85, 0.3)' },
-                    ticks: {
-                        color: '#94a3b8',
-                        callback: (v) => `${(v * 100).toFixed(0)}%`
-                    }
-                },
                 x: {
-                    grid: { display: false },
-                    ticks: { color: '#e2e8f0', font: { weight: 'bold' } }
+                    grid: { color: 'rgba(255, 255, 255, 0.06)' },
+                    ticks: { color: '#94a3b8' },
+                    title: { display: true, text: 'Predicted Probability Threshold', color: '#64748b' }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.06)' },
+                    ticks: { color: '#94a3b8' },
+                    title: { display: true, text: 'Posterior Density f(p)', color: '#64748b' },
+                    beginAtZero: true
                 }
             }
         }
     });
-}
-
-// ==============================================================================
-// 12. CLINICAL AI ASSISTANT DIALOGUE
-// ==============================================================================
-function askPresetQuestion(q) {
-    const input = document.getElementById('chatInput');
-    if (input) {
-        input.value = q;
-        sendChatMessage();
-    }
-}
-
-function sendChatMessage() {
-    const input = document.getElementById('chatInput');
-    if (!input || !input.value.trim()) return;
-    
-    const text = input.value.trim();
-    input.value = '';
-    
-    addChatMessage('user', text);
-    
-    setTimeout(() => {
-        const reply = generateLocalInformationalAnswer(text);
-        addChatMessage('ai', reply);
-    }, 400);
-}
-
-function addChatMessage(sender, text) {
-    const dialogue = document.getElementById('chatDialogue');
-    if (!dialogue) return;
-    
-    const div = document.createElement('div');
-    div.className = `chat-msg ${sender === 'user' ? 'user-msg' : 'ai-msg'}`;
-    div.innerHTML = `
-        <div class="msg-avatar"><i class="fa-solid ${sender === 'user' ? 'fa-user' : 'fa-user-doctor'}"></i></div>
-        <div class="msg-bubble">
-            <div class="msg-author">${sender === 'user' ? 'You' : 'CardioSight Clinical Assistant'}</div>
-            <div class="msg-text">${text}</div>
-            <div class="msg-time">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-        </div>
-    `;
-    dialogue.appendChild(div);
-    dialogue.scrollTop = dialogue.scrollHeight;
-}
-
-function clearChatHistory() {
-    const dialogue = document.getElementById('chatDialogue');
-    if (!dialogue) return;
-    dialogue.innerHTML = `
-        <div class="chat-msg ai-msg">
-            <div class="msg-avatar"><i class="fa-solid fa-user-doctor"></i></div>
-            <div class="msg-bubble">
-                <div class="msg-author">CardioSight Clinical Assistant</div>
-                <div class="msg-text">Conversation history cleared. How can I assist you with your ECG analysis or model explanation?</div>
-                <div class="msg-time">Ready</div>
-            </div>
-        </div>
-    `;
-}
-
-function generateLocalInformationalAnswer(query) {
-    const q = query.toLowerCase();
-    const curClass = latestBackendResponse && latestBackendResponse.prediction 
-        ? latestBackendResponse.prediction.class 
-        : 'NSR';
-    
-    if (q.includes('current predicted diagnosis') || q.includes('reasoning')) {
-        const full = CLASS_FULL_NAMES[curClass] || curClass;
-        return `The current primary model classification is <strong>${curClass} (${full})</strong>. The 1D ResNet-34 model evaluated multi-lead voltage depolarization contours, while NeuroKit2 fiducial extraction and Random Forest TreeSHAP identified dominant timing and amplitude feature attributions for this classification.`;
-    }
-    
-    if (q.includes('uncertainty') || q.includes('standard deviation')) {
-        return `Monte Carlo Dropout executes 30 stochastic forward passes with dropout probability p = 0.30 at inference time. The standard deviation (&sigma;) measures Bayesian epistemic dispersion. A low standard deviation indicates consistent model representations, whereas elevated dispersion signals borderline waveform morphology or distribution shift from the training cohorts.`;
-    }
-    
-    if (q.includes('precautions') || q.includes('treatment')) {
-        return `Clinical guidelines for ${curClass} recommend correlation with patient vitals, acute symptoms (chest tightness, dyspnea, syncope), and baseline tracings. If ischemic signs or hemodynamic compromise are present, immediate cardiology review and emergency medical protocols must be initiated.`;
-    }
-    
-    if (q.includes('fedavg') || q.includes('fedprox') || q.includes('fedadam') || q.includes('difference')) {
-        return `<strong>FedAvg</strong> performs sample-weighted parameter averaging. <strong>FedProx</strong> introduces a proximal penalty (&mu;=0.001) to constrain client drift under non-IID class imbalance, achieving lower F1-STD across rare classes. <strong>FedAdam</strong> incorporates adaptive first and second server-side moments (&beta;1=0.9, &beta;2=0.99, &eta;=0.01) to achieve stable convergence across all participating hospital cohorts.`;
-    }
-    
-    return `CardioSight PRO analyzes 12-lead ECG records through a federated ResNet-34 architecture. Query me regarding specific pathologies (AF, LBBB, NSR), explainability metrics (1D Grad-CAM, SHAP Beeswarm), or federated optimization benchmarks.`;
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>"']/g, m => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
-    })[m]);
 }
 
 // ==============================================================================

@@ -1014,24 +1014,20 @@ def compute_mc_dropout_uncertainty(
         dtype=torch.float32
     ).unsqueeze(0).to(device)
 
-    predictions = []
-
-    with torch.no_grad():
-
-        for _ in range(n_passes):
-
-            logits = model(signal_tensor)
-
+    try:
+        batched_tensor = signal_tensor.repeat(n_passes, 1, 1)
+        with torch.no_grad():
+            logits = model(batched_tensor)
             probabilities = torch.sigmoid(logits)
-
-            predictions.append(
-                probabilities.cpu().numpy()[0]
-            )
-
-    predictions = np.stack(
-        predictions,
-        axis=0
-    )
+            predictions = probabilities.cpu().numpy()
+    except Exception:
+        predictions = []
+        with torch.no_grad():
+            for _ in range(n_passes):
+                logits = model(signal_tensor)
+                probabilities = torch.sigmoid(logits)
+                predictions.append(probabilities.cpu().numpy()[0])
+        predictions = np.stack(predictions, axis=0)
 
     mean_prediction = predictions.mean(
         axis=0

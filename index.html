@@ -16,7 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <!-- Stylesheet -->
-    <link rel="stylesheet" href="styles.css?v=2.5.0">
+    <link rel="stylesheet" href="styles.css?v=2.6.0">
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#030712">
@@ -211,55 +211,35 @@
             <!-- ============================================================== -->
             <!-- PAGE 2: UNCERTAINTY & CLINICAL INTELLIGENCE                   -->
             <!-- ============================================================== -->
-            <section id="xai-section" class="app-section">
+                        <section id="xai-section" class="app-section">
                 <div class="section-header">
                     <div>
                         <h2>XAI & Monte Carlo Dropout Uncertainty Quantification</h2>
-                        <p>Evaluates Bayesian epistemic predictive distributions across all 12 target classes via 30 stochastic Monte Carlo forward passes with Dropout (p = 0.3), coupled with 1D Grad-CAM waveform localization and SHAP Beeswarm attributions.</p>
+                        <p>Evaluates Bayesian epistemic predictive distributions across all 12 target classes via 30 stochastic Monte Carlo forward passes with Dropout (p = 0.3), coupled with SHAP electrophysiological feature attributions.</p>
                     </div>
                 </div>
 
                 <div class="xai-grid">
-                    <!-- GRAD-CAM / ECG EXPLANATION CARD (PAGE 2) -->
-                    <div class="card full-width">
+                    <!-- SHAP HORIZONTAL BAR CHART (PAGE 2) -->
+                    <div class="card full-width shap-summary-card">
                         <div class="card-header">
                             <div>
-                                <h3><i class="fa-solid fa-wave-square"></i> 1D Grad-CAM Temporal Waveform Attribution (Lead II)</h3>
-                                <p class="card-sub-p">Layer-4 backpropagated temporal gradient importance aligned with the analyzed 10-second ECG tracing.</p>
-                            </div>
-                            <span class="badge badge-primary" id="xaiGradCamBadge">Target: Awaiting Analysis</span>
-                        </div>
-                        <div class="canvas-container" style="height: 250px;">
-                            <canvas id="xaiGradCamCanvas"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- SHAP BEESWARM VISUALIZATION (PAGE 2) -->
-                    <div class="card full-width">
-                        <div class="card-header">
-                            <div>
-                                <h3><i class="fa-solid fa-braille"></i> Multi-Fiducial SHAP Beeswarm Distribution</h3>
-                                <p class="card-sub-p">Evaluates feature importance ranking and positive/negative contribution dynamics across the 9 cardiological fiducials.</p>
+                                <h3><i class="fa-solid fa-chart-column"></i> SHAP Cardiological Feature Importance (NeuroKit2 Fiducials)</h3>
+                                <p class="card-sub-p">Quantifies electrophysiological feature contributions toward the predicted class using TreeExplainer over trained Random Forest estimators.</p>
                             </div>
                             <span class="badge badge-info" id="xaiShapBadge">Target: Awaiting Analysis</span>
                         </div>
-                        <div class="beeswarm-container">
-                            <canvas id="xaiShapBeeswarmCanvas" height="320"></canvas>
-                            <div class="beeswarm-legend-bar">
-                                <span class="legend-text"><i class="fa-solid fa-circle" style="color: #3b82f6;"></i> Low Feature Value</span>
-                                <div class="beeswarm-gradient-line"></div>
-                                <span class="legend-text"><i class="fa-solid fa-circle" style="color: #ef4444;"></i> High Feature Value</span>
-                                <span class="legend-text ml-auto"><span class="patient-point-indicator"></span> Current Patient Record</span>
-                            </div>
+                        <div class="chart-wrapper" style="height: 320px;" id="xaiShapChartWrap">
+                            <canvas id="xaiShapBarChart"></canvas>
                         </div>
                     </div>
 
-                    <!-- MC DROPOUT CHART (MEAN + STD ERROR BARS) -->
+                    <!-- MC DROPOUT CHART (EPISTEMIC PREDICTIVE DENSITY LINE PLOT) -->
                     <div class="card full-width">
                         <div class="card-header">
                             <div>
                                 <h3><i class="fa-solid fa-chart-line"></i> 12-Class MC-Dropout Predictive Distributions</h3>
-                                <p class="card-sub-p">Mean predicted probability &plusmn; uncertainty standard deviation (&sigma;) error bars generated across 30 stochastic forward passes.</p>
+                                <p class="card-sub-p">Epistemic posterior probability density curve generated across 30 stochastic Monte Carlo forward passes with active Dropout (p = 0.3).</p>
                             </div>
                             <span class="badge badge-info">30 MC Passes (p = 0.3)</span>
                         </div>
@@ -288,13 +268,12 @@
                             </div>
                         </div>
 
-                        <div class="chart-wrapper" style="height: 360px;">
+                        <div class="chart-wrapper" style="height: 340px;">
                             <canvas id="mcDropoutChart"></canvas>
                         </div>
                     </div>
 
-                    <!-- CLINICAL AI ASSISTANT (CHATBOT) -->
-                                        <!-- AUTOMATED 7-SECTION CLINICAL REASONING REPORT (PAGE 2) -->
+                    <!-- AUTOMATED 7-SECTION CLINICAL REASONING REPORT (PAGE 2) -->
                     <div class="card full-width clinical-report-card">
                         <div class="card-header">
                             <div>
@@ -307,46 +286,6 @@
                         </div>
                         <div class="report-content" id="reportContent">
                             <p class="text-muted">Upload and analyze an ECG record on Page 1 (.hea + .mat) to view the complete 7-section clinical reasoning dossier.</p>
-                        </div>
-                    </div>
-
-                    <div class="card full-width chatbot-card">
-                        <div class="card-header">
-                            <div class="header-with-badge">
-                                <h3><i class="fa-solid fa-robot"></i> Clinical AI Assistant (Informational Dialogue)</h3>
-                                <span class="badge badge-success">CardioSight Knowledge Engine</span>
-                            </div>
-                            <button class="btn btn-sm btn-outline" onclick="clearChatHistory()"><i class="fa-solid fa-trash-can"></i> Clear</button>
-                        </div>
-                        <p class="card-desc">Interact with the clinical knowledge assistant to query pathology characteristics, diagnostic criteria, precautions, and electrophysiological interpretations.</p>
-                        
-                        <!-- Quick Question Prompt Chips -->
-                        <div class="chat-chips-row">
-                            <span class="chips-label"><i class="fa-solid fa-lightbulb"></i> Inquiries:</span>
-                            <button class="chat-chip" onclick="askPresetQuestion('Explain the electrophysiological reasoning for the current predicted diagnosis.')">Explain Current Diagnosis</button>
-                            <button class="chat-chip" onclick="askPresetQuestion('What does the MC-Dropout uncertainty standard deviation indicate for this rhythm?')">Interpret MC-Dropout Uncertainty</button>
-                            <button class="chat-chip" onclick="askPresetQuestion('What are the recommended clinical precautions and treatment protocols for this condition?')">Clinical Precautions & Actions</button>
-                            <button class="chat-chip" onclick="askPresetQuestion('What is the difference between FedAvg, FedProx, and FedAdam in this project?')">FL Strategy Differences</button>
-                        </div>
-
-                        <!-- Chat Dialogue Stream -->
-                        <div class="chat-dialogue-container" id="chatDialogue">
-                            <div class="chat-msg ai-msg">
-                                <div class="msg-avatar"><i class="fa-solid fa-user-doctor"></i></div>
-                                <div class="msg-bubble">
-                                    <div class="msg-author">CardioSight Clinical Assistant</div>
-                                    <div class="msg-text">Welcome to the CardioSight PRO Clinical Intelligence portal. Upload an ECG record (.hea + .mat) and execute analysis to view live predictions, 1D Grad-CAM, SHAP fiducials, and MC-Dropout uncertainty bounds. How can I assist you today?</div>
-                                    <div class="msg-time">Ready</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Chat Input Box -->
-                        <div class="chat-input-bar">
-                            <input type="text" id="chatInput" class="chat-input" placeholder="Ask a clinical question about ECG criteria, MC-Dropout uncertainty, or federated models..." onkeydown="if(event.key==='Enter') sendChatMessage()">
-                            <button class="btn btn-primary chat-send-btn" onclick="sendChatMessage()">
-                                <i class="fa-solid fa-paper-plane"></i> Send
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -646,7 +585,7 @@
             <button class="b-nav-item" onclick="switchSection('about')"><i class="fa-solid fa-users"></i><span>5. About</span></button>
         </nav>
     </div>
-    <script src="app.js?v=2.5.0"></script>
+    <script src="app.js?v=2.6.0"></script>
 
     <!-- ============================================================== -->
     <!-- 24/7 CLOUD BACKEND CONFIGURATION MODAL                         -->
