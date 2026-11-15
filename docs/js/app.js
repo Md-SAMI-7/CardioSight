@@ -532,32 +532,39 @@ function handleFileSelection(files) {
 }
 
 function updateFileBadges() {
-    const heaBadge = document.getElementById('heaBadge');
-    const matBadge = document.getElementById('matBadge');
     const metaId = document.getElementById('metaId');
     const fileStatusBadge = document.getElementById('fileStatusBadge');
     
-    if (heaBadge) {
-        if (uploadedHeaFile) {
-            heaBadge.innerHTML = `<i class="fa-solid fa-check text-success"></i> ${uploadedHeaFile.name}`;
-            heaBadge.classList.add('badge-primary');
-            heaBadge.classList.remove('badge-outline');
-        } else {
-            heaBadge.innerHTML = `<i class="fa-solid fa-file-code"></i> Header: None`;
-            heaBadge.classList.remove('badge-primary');
-            heaBadge.classList.add('badge-outline');
+    const heaNameDisp = document.getElementById('heaFileNameDisplay');
+    const heaStatus = document.getElementById('heaFileStatus');
+    const matNameDisp = document.getElementById('matFileNameDisplay');
+    const matStatus = document.getElementById('matFileStatus');
+    
+    if (uploadedHeaFile) {
+        if (heaNameDisp) heaNameDisp.textContent = uploadedHeaFile.name;
+        if (heaStatus) {
+            heaStatus.textContent = 'Loaded';
+            heaStatus.className = 'drop-box-badge loaded';
+        }
+    } else {
+        if (heaNameDisp) heaNameDisp.textContent = 'Select or drop .hea metadata file';
+        if (heaStatus) {
+            heaStatus.textContent = 'Missing';
+            heaStatus.className = 'drop-box-badge';
         }
     }
     
-    if (matBadge) {
-        if (uploadedMatFile) {
-            matBadge.innerHTML = `<i class="fa-solid fa-check text-success"></i> ${uploadedMatFile.name}`;
-            matBadge.classList.add('badge-success');
-            matBadge.classList.remove('badge-outline');
-        } else {
-            matBadge.innerHTML = `<i class="fa-solid fa-file-lines"></i> Signal: None`;
-            matBadge.classList.remove('badge-success');
-            matBadge.classList.add('badge-outline');
+    if (uploadedMatFile) {
+        if (matNameDisp) matNameDisp.textContent = uploadedMatFile.name;
+        if (matStatus) {
+            matStatus.textContent = 'Loaded';
+            matStatus.className = 'drop-box-badge loaded';
+        }
+    } else {
+        if (matNameDisp) matNameDisp.textContent = 'Select or drop .mat voltage data file';
+        if (matStatus) {
+            matStatus.textContent = 'Missing';
+            matStatus.className = 'drop-box-badge';
         }
     }
     
@@ -805,8 +812,7 @@ function updateUiWithRealBackendResults(data) {
         realGradCamValues = data.gradcam.values;
         const stateEl = document.getElementById('gradCamState');
         if (stateEl) stateEl.textContent = "ON";
-        const xaiBadge = document.getElementById('xaiGradCamBadge');
-        if (xaiBadge) xaiBadge.textContent = `Target: ${pred ? pred.class : 'Layer 4'}`;
+        
     } else {
         realGradCamValues = null;
         const stateEl = document.getElementById('gradCamState');
