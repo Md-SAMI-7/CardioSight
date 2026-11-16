@@ -1012,16 +1012,28 @@ function renderEcgCanvas() {
     if (activeLead === 'ALL') {
         const stripHeight = height / 12;
         const leadNames = realEcgData.lead_names || ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"];
+        
         for (let l = 0; l < 12; l++) {
             const leadName = leadNames[l] || `Lead ${l+1}`;
             const centerY = stripHeight * l + stripHeight / 2;
+            const yTop = stripHeight * l;
             
-            ctx.fillStyle = "#38bdf8";
+            // Draw 2D Jet/Rainbow Grad-CAM Heatmap if enabled
+            if (gradCamEnabled && realGradCamValues && realGradCamValues.length > 0) {
+                drawGradCamHeatmap2D(ctx, realGradCamValues, yTop, stripHeight, width, nSamples);
+            }
+            
+            ctx.fillStyle = gradCamEnabled ? "#0f172a" : "#38bdf8";
             ctx.font = "bold 11px 'JetBrains Mono', monospace";
             ctx.textAlign = "left";
             ctx.fillText(leadName, 12, centerY - stripHeight / 2 + 14);
             
-            drawSingleLeadWaveform(ctx, signals[l], realGradCamValues, centerY, stripHeight * 0.45, width, nSamples, false, leadName);
+            drawSingleLeadWaveform(ctx, signals[l], centerY, stripHeight * 0.45, width, nSamples, false, leadName);
+            
+            // Red salient arrows for rhythm strip (Lead II)
+            if (l === 1 && gradCamEnabled && realGradCamValues) {
+                drawSalientPeakArrows(ctx, realGradCamValues, centerY, stripHeight * 0.45, width, nSamples);
+            }
         }
     } else {
         const leadIndex = getLeadIndexFromName(activeLead);
@@ -1029,13 +1041,23 @@ function renderEcgCanvas() {
         const centerY = height / 2;
         const ampScale = height * 0.35;
         
-        ctx.fillStyle = "rgba(56, 189, 248, 0.12)";
+        // 1. Draw 2D Jet/Rainbow Grad-CAM Heatmap across the canvas
+        if (gradCamEnabled && realGradCamValues && realGradCamValues.length > 0) {
+            drawGradCamHeatmap2D(ctx, realGradCamValues, 0, height, width, signal.length);
+        }
+        
+        ctx.fillStyle = gradCamEnabled ? "rgba(15, 23, 42, 0.25)" : "rgba(56, 189, 248, 0.12)";
         ctx.font = "bold 60px 'Inter', sans-serif";
         ctx.textAlign = "right";
         ctx.fillText(`Lead ${activeLead}`, width - 24, 75);
         
-        // Render sleek ECG waveform trace with 1D Grad-CAM saliency highlights directly on the line (no bulk rectangular fills)
-        drawSingleLeadWaveform(ctx, signal, realGradCamValues, centerY, ampScale, width, signal.length, true, activeLead);
+        // 2. Draw crisp ECG waveform trace over heatmap
+        drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, signal.length, true, activeLead);
+        
+        // 3. Draw red clinical salient arrows pointing to critical beats
+        if (gradCamEnabled && realGradCamValues && realGradCamValues.length > 0) {
+            drawSalientPeakArrows(ctx, realGradCamValues, centerY, ampScale, width, signal.length);
+        }
     }
 }
 
@@ -1083,54 +1105,39 @@ function drawMedicalEcgGrid(ctx, width, height) {
     }
 }
 
-function drawSingleLeadWaveform(ctx, signal, camValues, centerY, ampScale, width, nSamples, isPrimary, label) {
+function drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, nSamples, isPrimary, label) {
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, width, ctx.canvas.height);
     ctx.clip();
     
+    // In Grad-CAM mode, draw crisp dark medical trace over the rainbow heatmap (matching the paper screenshot)
+    // In standard mode, draw electric cyan trace
+    ctx.strokeStyle = gradCamEnabled ? "#0a0f1d" : (isPrimary ? "#38bdf8" : "#0ea5e9");
+    ctx.lineWidth = gradCamEnabled ? (isPrimary ? 2.2 : 1.6) : (isPrimary ? 2.0 : 1.4);
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     
+    ctx.beginPath();
     const stepX = (width / nSamples) * canvasZoomLevel;
     
-    // Draw segmented waveform with Grad-CAM saliency highlights directly along the trace
-    for (let i = 0; i < nSamples - 1; i++) {
-        const x1 = (i * stepX) + canvasOffsetX;
-        const x2 = ((i + 1) * stepX) + canvasOffsetX;
-        if (x2 < -20 || x1 > width + 20) continue;
+    let firstPoint = true;
+    for (let i = 0; i < nSamples; i++) {
+        const x = (i * stepX) + canvasOffsetX;
+        if (x < -20 || x > width + 20) continue;
         
-        const y1 = centerY - (signal[i] * ampScale);
-        const y2 = centerY - (signal[i + 1] * ampScale);
-        
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        
-        const sal = (gradCamEnabled && camValues && camValues[i] !== undefined) ? camValues[i] : 0.0;
-        
-        if (sal > 0.45) {
-            // High Grad-CAM saliency: vivid coral/red highlight directly on the waveform
-            ctx.strokeStyle = `rgba(239, 68, 68, ${Math.min(1.0, 0.7 + sal * 0.3)})`;
-            ctx.lineWidth = isPrimary ? 3.0 : 2.0;
-        } else if (sal > 0.20) {
-            // Transition zone: subtle purple/rose blend
-            const t = (sal - 0.20) / 0.25;
-            const r = Math.round(56 + t * (239 - 56));
-            const g = Math.round(189 + t * (68 - 189));
-            const b = Math.round(248 + t * (68 - 248));
-            ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-            ctx.lineWidth = isPrimary ? 2.2 : 1.5;
+        const y = centerY - (signal[i] * ampScale);
+        if (firstPoint) {
+            ctx.moveTo(x, y);
+            firstPoint = false;
         } else {
-            // Normal baseline waveform: electric cyan
-            ctx.strokeStyle = isPrimary ? "#38bdf8" : "#0ea5e9";
-            ctx.lineWidth = isPrimary ? 1.8 : 1.2;
+            ctx.lineTo(x, y);
         }
-        ctx.stroke();
     }
+    ctx.stroke();
     
     if (label) {
-        ctx.fillStyle = isPrimary ? '#f8fafc' : '#94a3b8';
+        ctx.fillStyle = gradCamEnabled ? '#0f172a' : (isPrimary ? '#f8fafc' : '#94a3b8');
         ctx.font = 'bold 12px Inter, sans-serif';
         ctx.textAlign = 'left';
         ctx.fillText(label, 16, centerY - ampScale * 0.7);
@@ -1138,8 +1145,171 @@ function drawSingleLeadWaveform(ctx, signal, camValues, centerY, ampScale, width
     ctx.restore();
 }
 
+function getJetRgb(v) {
+    v = Math.max(0.0, Math.min(1.0, v));
+    // Jet / Rainbow Colormap matching clinical publication format:
+    // 0.00: Deep Blue [30, 60, 195]
+    // 0.25: Vibrant Cyan [0, 190, 225]
+    // 0.50: Crisp Green [40, 205, 90]
+    // 0.70: Radiant Yellow [250, 215, 20]
+    // 0.85: Warm Orange [245, 95, 25]
+    // 1.00: Crimson Red [220, 25, 35]
+    let r, g, b;
+    if (v < 0.25) {
+        const t = v / 0.25;
+        r = Math.round(30 * (1 - t));
+        g = Math.round(60 + t * (190 - 60));
+        b = Math.round(195 + t * (225 - 195));
+    } else if (v < 0.50) {
+        const t = (v - 0.25) / 0.25;
+        r = Math.round(t * 40);
+        g = Math.round(190 + t * (205 - 190));
+        b = Math.round(225 * (1 - t) + 90 * t);
+    } else if (v < 0.70) {
+        const t = (v - 0.50) / 0.20;
+        r = Math.round(40 + t * (250 - 40));
+        g = Math.round(205 + t * (215 - 205));
+        b = Math.round(90 * (1 - t) + 20 * t);
+    } else if (v < 0.85) {
+        const t = (v - 0.70) / 0.15;
+        r = Math.round(250 + t * (245 - 250));
+        g = Math.round(215 + t * (95 - 215));
+        b = Math.round(20 * (1 - t) + 25 * t);
+    } else {
+        const t = (v - 0.85) / 0.15;
+        r = Math.round(245 + t * (220 - 245));
+        g = Math.round(95 * (1 - t) + 25 * t);
+        b = Math.round(25 + t * (35 - 25));
+    }
+    return [r, g, b];
+}
+
+function drawGradCamHeatmap2D(ctx, camValues, yTop, stripHeight, width, nSamples) {
+    if (!camValues || camValues.length === 0) return;
+    
+    // Offscreen canvas for smooth 2D bilinear GPU interpolation
+    const subW = Math.min(300, Math.max(120, Math.floor(width / 3)));
+    const subH = Math.min(80, Math.max(30, Math.floor(stripHeight / 3)));
+    
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = subW;
+    offCanvas.height = subH;
+    const offCtx = offCanvas.getContext('2d');
+    const imgData = offCtx.createImageData(subW, subH);
+    const data = imgData.data;
+    
+    const stepX = (width / nSamples) * canvasZoomLevel;
+    const centerYSub = subH * 0.5;
+    const sigmaY = subH * 0.38;
+    const twoSigmaYSq = 2 * sigmaY * sigmaY;
+    
+    for (let px = 0; px < subW; px++) {
+        const screenX = (px / subW) * width;
+        const sampleIdx = Math.round((screenX - canvasOffsetX) / stepX);
+        
+        let sal = 0;
+        if (sampleIdx >= 0 && sampleIdx < camValues.length) {
+            sal = camValues[sampleIdx] || 0;
+        }
+        
+        const normSal = Math.min(1.0, Math.max(0.0, sal));
+        
+        for (let py = 0; py < subH; py++) {
+            const dy = py - centerYSub;
+            const gY = Math.exp(-(dy * dy) / twoSigmaYSq);
+            
+            // 2D Jet Heatmap: baseline is ocean blue; hotspots spread smoothly around complexes
+            const val = normSal * (0.20 + 0.80 * gY);
+            const rgb = getJetRgb(val);
+            
+            const idx = (py * subW + px) * 4;
+            data[idx] = rgb[0];     // R
+            data[idx + 1] = rgb[1]; // G
+            data[idx + 2] = rgb[2]; // B
+            data[idx + 3] = 235;    // Opacity
+        }
+    }
+    
+    offCtx.putImageData(imgData, 0, 0);
+    
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(offCanvas, 0, 0, subW, subH, 0, yTop, width, stripHeight);
+    
+    // Subtle medical grid lines over heatmap matching paper ECG background
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    const smallGrid = 15;
+    for (let x = 0; x <= width; x += smallGrid) {
+        ctx.moveTo(x, yTop);
+        ctx.lineTo(x, yTop + stripHeight);
+    }
+    for (let y = yTop; y <= yTop + stripHeight; y += smallGrid) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+    }
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawSalientPeakArrows(ctx, camValues, centerY, ampScale, width, nSamples) {
+    if (!camValues || camValues.length === 0) return;
+    
+    // Find local maxima with high saliency (>= 0.65)
+    const minDistance = Math.floor(nSamples * 0.05); // ~250ms
+    const detected = [];
+    
+    for (let i = 2; i < camValues.length - 2; i++) {
+        const val = camValues[i];
+        if (val > 0.65 && val >= camValues[i - 1] && val >= camValues[i - 2] && val >= camValues[i + 1] && val >= camValues[i + 2]) {
+            if (detected.length === 0 || (i - detected[detected.length - 1].index) > minDistance) {
+                detected.push({ index: i, value: val });
+            } else if (val > detected[detected.length - 1].value) {
+                detected[detected.length - 1] = { index: i, value: val };
+            }
+        }
+    }
+    
+    // Pick top 2-3 most salient complexes
+    detected.sort((a, b) => b.value - a.value);
+    const topPeaks = detected.slice(0, 3).sort((a, b) => a.index - b.index);
+    if (topPeaks.length === 0) return;
+    
+    const stepX = (width / nSamples) * canvasZoomLevel;
+    
+    ctx.save();
+    ctx.fillStyle = "#dc2626"; // Crimson red matching the screenshot arrows
+    ctx.strokeStyle = "#991b1b";
+    ctx.lineWidth = 1.2;
+    
+    topPeaks.forEach(p => {
+        const x = (p.index * stepX) + canvasOffsetX;
+        if (x < 15 || x > width - 15) return;
+        
+        const arrowTipY = centerY + ampScale * 0.55;
+        const arrowBaseY = arrowTipY + 24;
+        const arrowW = 8;
+        
+        // Draw red arrow pointing up to the salient beat
+        ctx.beginPath();
+        ctx.moveTo(x, arrowTipY);
+        ctx.lineTo(x - arrowW, arrowTipY + 11);
+        ctx.lineTo(x - 3, arrowTipY + 11);
+        ctx.lineTo(x - 3, arrowBaseY);
+        ctx.lineTo(x + 3, arrowBaseY);
+        ctx.lineTo(x + 3, arrowTipY + 11);
+        ctx.lineTo(x + arrowW, arrowTipY + 11);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    });
+    ctx.restore();
+}
+
 function drawGradCamHeatmap(ctx, camValues, centerY, ampScale, width, nSamples) {
-    // Replaced legacy bulk rectangular fill with sleek waveform-trace saliency highlights
+    drawGradCamHeatmap2D(ctx, camValues, centerY - ampScale, ampScale * 2, width, nSamples);
 }
 
 function getLeadIndexFromName(name) {
