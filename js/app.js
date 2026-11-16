@@ -1021,7 +1021,7 @@ function renderEcgCanvas() {
             ctx.textAlign = "left";
             ctx.fillText(leadName, 12, centerY - stripHeight / 2 + 14);
             
-            drawSingleLeadWaveform(ctx, signals[l], centerY, stripHeight * 0.45, width, nSamples, false, leadName);
+            drawSingleLeadWaveform(ctx, signals[l], realGradCamValues, centerY, stripHeight * 0.45, width, nSamples, false, leadName);
         }
     } else {
         const leadIndex = getLeadIndexFromName(activeLead);
@@ -1034,13 +1034,8 @@ function renderEcgCanvas() {
         ctx.textAlign = "right";
         ctx.fillText(`Lead ${activeLead}`, width - 24, 75);
         
-        // Previous Perfect 1D Grad-CAM: linear gradient glow centered on the waveform!
-        if (gradCamEnabled && realGradCamValues && realGradCamValues.length > 0) {
-            drawGradCamHeatmap(ctx, realGradCamValues, centerY, ampScale, width, signal.length);
-        }
-        
-        // Draw ECG waveform trace in electric cyan blue with crisp medical clarity
-        drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, signal.length, true, activeLead);
+        // Render sleek ECG waveform trace with 1D Grad-CAM saliency highlights directly on the line (no bulk rectangular fills)
+        drawSingleLeadWaveform(ctx, signal, realGradCamValues, centerY, ampScale, width, signal.length, true, activeLead);
     }
 }
 
@@ -1088,32 +1083,51 @@ function drawMedicalEcgGrid(ctx, width, height) {
     }
 }
 
-function drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, nSamples, isPrimary, label) {
+function drawSingleLeadWaveform(ctx, signal, camValues, centerY, ampScale, width, nSamples, isPrimary, label) {
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, width, ctx.canvas.height);
     ctx.clip();
     
-    ctx.strokeStyle = isPrimary ? "#38bdf8" : "#0ea5e9";
-    ctx.lineWidth = isPrimary ? 2.0 : 1.4;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     
-    ctx.beginPath();
     const stepX = (width / nSamples) * canvasZoomLevel;
     
-    for (let i = 0; i < nSamples; i++) {
-        const x = (i * stepX) + canvasOffsetX;
-        if (x < -20 || x > width + 20) continue;
+    // Draw segmented waveform with Grad-CAM saliency highlights directly along the trace
+    for (let i = 0; i < nSamples - 1; i++) {
+        const x1 = (i * stepX) + canvasOffsetX;
+        const x2 = ((i + 1) * stepX) + canvasOffsetX;
+        if (x2 < -20 || x1 > width + 20) continue;
         
-        const y = centerY - (signal[i] * ampScale);
-        if (i === 0) {
-            ctx.moveTo(x, y);
+        const y1 = centerY - (signal[i] * ampScale);
+        const y2 = centerY - (signal[i + 1] * ampScale);
+        
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        
+        const sal = (gradCamEnabled && camValues && camValues[i] !== undefined) ? camValues[i] : 0.0;
+        
+        if (sal > 0.45) {
+            // High Grad-CAM saliency: vivid coral/red highlight directly on the waveform
+            ctx.strokeStyle = `rgba(239, 68, 68, ${Math.min(1.0, 0.7 + sal * 0.3)})`;
+            ctx.lineWidth = isPrimary ? 3.0 : 2.0;
+        } else if (sal > 0.20) {
+            // Transition zone: subtle purple/rose blend
+            const t = (sal - 0.20) / 0.25;
+            const r = Math.round(56 + t * (239 - 56));
+            const g = Math.round(189 + t * (68 - 189));
+            const b = Math.round(248 + t * (68 - 248));
+            ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+            ctx.lineWidth = isPrimary ? 2.2 : 1.5;
         } else {
-            ctx.lineTo(x, y);
+            // Normal baseline waveform: electric cyan
+            ctx.strokeStyle = isPrimary ? "#38bdf8" : "#0ea5e9";
+            ctx.lineWidth = isPrimary ? 1.8 : 1.2;
         }
+        ctx.stroke();
     }
-    ctx.stroke();
     
     if (label) {
         ctx.fillStyle = isPrimary ? '#f8fafc' : '#94a3b8';
@@ -1125,26 +1139,7 @@ function drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, nSamples,
 }
 
 function drawGradCamHeatmap(ctx, camValues, centerY, ampScale, width, nSamples) {
-    ctx.save();
-    const stepX = (width / nSamples) * canvasZoomLevel;
-    
-    for (let i = 0; i < nSamples; i += 4) {
-        const x = (i * stepX) + canvasOffsetX;
-        if (x < -20 || x > width + 20) continue;
-        
-        const intensity = Math.min(Math.max(camValues[i], 0), 1.0);
-        if (intensity > 0.05) {
-            const w = stepX * 4;
-            const grad = ctx.createLinearGradient(x, centerY - ampScale, x, centerY + ampScale);
-            grad.addColorStop(0, `rgba(244, 63, 94, 0)`);
-            grad.addColorStop(0.5, `rgba(244, 63, 94, ${intensity * 0.35})`);
-            grad.addColorStop(1, `rgba(244, 63, 94, 0)`);
-            
-            ctx.fillStyle = grad;
-            ctx.fillRect(x, centerY - ampScale, w, ampScale * 2);
-        }
-    }
-    ctx.restore();
+    // Replaced legacy bulk rectangular fill with sleek waveform-trace saliency highlights
 }
 
 function getLeadIndexFromName(name) {
