@@ -904,13 +904,7 @@ function renderProbabilityBars(probabilities, topClass) {
 // 8. 12-LEAD OSCILLOSCOPE & 1D GRAD-CAM HEATMAP (CANVAS)
 // ==============================================================================
 function renderInitialEmptyState() {
-    const canvas = document.getElementById('ecgCanvas');
-    if (canvas && canvas.parentElement) {
-        const ctx = canvas.getContext('2d');
-        canvas.width = canvas.parentElement.clientWidth;
-        canvas.height = 360;
-        drawMedicalEcgGrid(ctx, canvas.width, canvas.height);
-    }
+    renderEcgCanvas();
 }
 
 
@@ -983,73 +977,100 @@ function renderEcgCanvas() {
     const canvas = document.getElementById('ecgCanvas');
     if (!canvas) return;
     
-    const container = canvas.parentElement;
-    canvas.width = container.clientWidth;
-    canvas.height = 360;
+    const wrapper = document.getElementById('canvasWrapper') || canvas.parentElement;
+    const rect = wrapper ? wrapper.getBoundingClientRect() : { width: 900, height: 380 };
+    const width = rect.width || 900;
+    const height = (activeLead === 'ALL' ? 720 : 380);
+    
+    canvas.width = width * (window.devicePixelRatio || 1);
+    canvas.height = height * (window.devicePixelRatio || 1);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
     
     const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
     
-    drawMedicalEcgGrid(ctx, canvas.width, canvas.height);
+    // 1. Clear background
+    ctx.fillStyle = "#030712";
+    ctx.fillRect(0, 0, width, height);
     
-    if (!realEcgData || !realEcgData.signals) return;
+    // 2. Draw standard medical 25mm/s & 10mm/mV grid
+    drawMedicalEcgGrid(ctx, width, height);
+    
+    // 3. Draw ECG Waveforms
+    if (!realEcgData || !realEcgData.signals) {
+        ctx.fillStyle = "#64748b";
+        ctx.font = "14px 'Inter', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("No ECG signal loaded. Upload .hea & .mat files and click 'Analyze ECG'.", width / 2, height / 2);
+        return;
+    }
     
     const signals = realEcgData.signals;
+    const nSamples = signals[0].length;
     
     if (activeLead === 'ALL') {
+        const stripHeight = height / 12;
         const leadNames = realEcgData.lead_names || ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"];
-        const rowHeight = canvas.height / 12;
-        
-        for (let i = 0; i < 12; i++) {
-            const rowY = i * rowHeight + rowHeight / 2;
-            ctx.fillStyle = '#64748b';
-            ctx.font = '10px JetBrains Mono, monospace';
-            ctx.fillText(leadNames[i], 12, rowY - 6);
+        for (let l = 0; l < 12; l++) {
+            const leadName = leadNames[l] || `Lead ${l+1}`;
+            const centerY = stripHeight * l + stripHeight / 2;
             
-            drawSingleLeadWaveform(ctx, canvas.width, canvas.height, signals[i], '#10b981', leadNames[i], rowY, rowHeight * 0.4);
+            ctx.fillStyle = "#38bdf8";
+            ctx.font = "bold 11px 'JetBrains Mono', monospace";
+            ctx.textAlign = "left";
+            ctx.fillText(leadName, 12, centerY - stripHeight / 2 + 14);
+            
+            drawSingleLeadWaveform(ctx, signals[l], centerY, stripHeight * 0.45, width, nSamples, false, leadName);
         }
     } else {
         const leadIndex = getLeadIndexFromName(activeLead);
         const signal = signals[leadIndex] || signals[0];
+        const centerY = height / 2;
+        const ampScale = height * 0.35;
         
-        // Draw 1D Grad-CAM Heatmap overlay
+        ctx.fillStyle = "rgba(56, 189, 248, 0.12)";
+        ctx.font = "bold 60px 'Inter', sans-serif";
+        ctx.textAlign = "right";
+        ctx.fillText(`Lead ${activeLead}`, width - 24, 75);
+        
+        // Previous Perfect 1D Grad-CAM: linear gradient glow centered on the waveform!
         if (gradCamEnabled && realGradCamValues && realGradCamValues.length > 0) {
-            drawGradCamHeatmap(ctx, canvas.width, canvas.height, realGradCamValues, 0, signal.length);
+            drawGradCamHeatmap(ctx, realGradCamValues, centerY, ampScale, width, signal.length);
         }
         
-        // Draw ECG waveform trace
-        drawSingleLeadWaveform(ctx, canvas.width, canvas.height, signal, '#10b981', activeLead, canvas.height / 2, canvas.height * 0.35);
+        // Draw ECG waveform trace in electric cyan blue with crisp medical clarity
+        drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, signal.length, true, activeLead);
     }
 }
 
-
 function drawMedicalEcgGrid(ctx, width, height) {
-    const smallGrid = 10 * canvasZoomLevel;
-    const largeGrid = smallGrid * 5;
+    const smallGrid = 15;
+    const largeGrid = 75;
     
     // Minor grid
     ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
     ctx.lineWidth = 0.5;
     ctx.beginPath();
-    for (let x = 0; x < width; x += smallGrid) {
+    for (let x = 0; x <= width; x += smallGrid) {
         ctx.moveTo(x, 0);
         ctx.lineTo(x, height);
     }
-    for (let y = 0; y < height; y += smallGrid) {
+    for (let y = 0; y <= height; y += smallGrid) {
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
     }
     ctx.stroke();
     
     // Major grid
-    ctx.strokeStyle = 'rgba(51, 65, 85, 0.6)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.10)';
+    ctx.lineWidth = 1.0;
     ctx.beginPath();
-    for (let x = 0; x < width; x += largeGrid) {
+    for (let x = 0; x <= width; x += largeGrid) {
         ctx.moveTo(x, 0);
         ctx.lineTo(x, height);
     }
-    for (let y = 0; y < height; y += largeGrid) {
+    for (let y = 0; y <= height; y += largeGrid) {
         ctx.moveTo(0, y);
         ctx.lineTo(width, y);
     }
@@ -1067,41 +1088,60 @@ function drawMedicalEcgGrid(ctx, width, height) {
     }
 }
 
-function drawSingleLeadWaveform(ctx, width, height, signal, color, label, centerY, scaleY) {
-    const n = signal.length;
-    const step = (width / n) * canvasZoomLevel;
-    
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 1.4;
+function drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, nSamples, isPrimary, label) {
+    ctx.save();
     ctx.beginPath();
+    ctx.rect(0, 0, width, ctx.canvas.height);
+    ctx.clip();
     
-    for (let i = 0; i < n; i++) {
-        const x = i * step + canvasOffsetX;
-        const y = centerY - signal[i] * scaleY;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+    ctx.strokeStyle = isPrimary ? "#38bdf8" : "#0ea5e9";
+    ctx.lineWidth = isPrimary ? 2.0 : 1.4;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    
+    ctx.beginPath();
+    const stepX = (width / nSamples) * canvasZoomLevel;
+    
+    for (let i = 0; i < nSamples; i++) {
+        const x = (i * stepX) + canvasOffsetX;
+        if (x < -20 || x > width + 20) continue;
+        
+        const y = centerY - (signal[i] * ampScale);
+        if (i === 0) {
+            ctx.moveTo(x, y);
+        } else {
+            ctx.lineTo(x, y);
+        }
     }
     ctx.stroke();
     
-    // Lead identifier label
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = 'bold 12px Inter, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(label, 16, centerY - scaleY * 0.7);
+    if (label) {
+        ctx.fillStyle = isPrimary ? '#f8fafc' : '#94a3b8';
+        ctx.font = 'bold 12px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(label, 16, centerY - ampScale * 0.7);
+    }
+    ctx.restore();
 }
 
-function drawGradCamHeatmap(ctx, width, height, camValues, startIdx, endIdx) {
-    const n = endIdx - startIdx;
-    const step = (width / n) * canvasZoomLevel;
-    
+function drawGradCamHeatmap(ctx, camValues, centerY, ampScale, width, nSamples) {
     ctx.save();
-    for (let i = 0; i < n; i++) {
-        const val = camValues[startIdx + i] || 0.0;
-        if (val > 0.08) {
-            const x = i * step + canvasOffsetX;
-            const alpha = Math.min(0.65, val * 0.75);
-            ctx.fillStyle = `rgba(244, 63, 94, ${alpha})`;
-            ctx.fillRect(x - step / 2, 0, step + 0.5, height);
+    const stepX = (width / nSamples) * canvasZoomLevel;
+    
+    for (let i = 0; i < nSamples; i += 4) {
+        const x = (i * stepX) + canvasOffsetX;
+        if (x < -20 || x > width + 20) continue;
+        
+        const intensity = Math.min(Math.max(camValues[i], 0), 1.0);
+        if (intensity > 0.05) {
+            const w = stepX * 4;
+            const grad = ctx.createLinearGradient(x, centerY - ampScale, x, centerY + ampScale);
+            grad.addColorStop(0, `rgba(244, 63, 94, 0)`);
+            grad.addColorStop(0.5, `rgba(244, 63, 94, ${intensity * 0.35})`);
+            grad.addColorStop(1, `rgba(244, 63, 94, 0)`);
+            
+            ctx.fillStyle = grad;
+            ctx.fillRect(x, centerY - ampScale, w, ampScale * 2);
         }
     }
     ctx.restore();
@@ -1176,6 +1216,7 @@ function renderRealShapChart(shapData) {
     
     if (shapBarChartInstance) {
         shapBarChartInstance.destroy();
+        shapBarChartInstance = null;
     }
     
     shapBarChartInstance = new Chart(canvas, {
@@ -1331,6 +1372,7 @@ function renderMCDropoutChart(uncertainty) {
     
     if (mcDropoutChartInstance) {
         mcDropoutChartInstance.destroy();
+        mcDropoutChartInstance = null;
     }
     
     mcDropoutChartInstance = new Chart(ctx, {
@@ -2225,90 +2267,183 @@ function generateClientEcgSignals(targetClass, hr, fs, nSamples) {
 }
 
 function generateClientGradCam(leadTwoSignal, targetClass) {
-    const cam = new Float32Array(5000);
     const n = leadTwoSignal.length;
+    const cam = new Float32Array(n);
+    const fs = 500;
     
-    // Find peaks and assign saliency
-    for (let i = 1; i < n - 1; i++) {
-        const val = Math.abs(leadTwoSignal[i]);
-        if (val > 0.4) {
-            const spread = 45;
-            for (let j = Math.max(0, i - spread); j < Math.min(n, i + spread); j++) {
-                const weight = Math.exp(-0.5 * Math.pow((j - i) / (spread / 2.2), 2));
-                cam[j] = Math.max(cam[j], val * weight);
+    // Detect patient-specific R-peaks from the voltage signal
+    const peaks = detectWaveformRPeaks(leadTwoSignal, fs);
+    
+    if (peaks.length > 0) {
+        peaks.forEach(p => {
+            // 1. QRS complex activation (depolarization zone)
+            const rWidth = (targetClass === 'LBBB' || targetClass === 'RBBB' || targetClass === 'NSIVCB') ? 48 : 28;
+            for (let j = Math.max(0, p - rWidth * 2); j < Math.min(n, p + rWidth * 2); j++) {
+                const dist = Math.abs(j - p);
+                const w = Math.exp(-0.5 * Math.pow(dist / (rWidth * 0.65), 2));
+                cam[j] = Math.max(cam[j], w * 0.95);
+            }
+            
+            // 2. ST-T segment activation (repolarization zone)
+            const tCenter = p + Math.floor(0.24 * fs);
+            const tWidth = 45;
+            if (tCenter < n) {
+                const tWeight = (targetClass === 'TAb' || targetClass === 'QAb') ? 0.88 : 0.45;
+                for (let j = Math.max(0, tCenter - tWidth * 2); j < Math.min(n, tCenter + tWidth * 2); j++) {
+                    const dist = Math.abs(j - tCenter);
+                    const w = Math.exp(-0.5 * Math.pow(dist / (tWidth * 0.75), 2));
+                    cam[j] = Math.max(cam[j], w * tWeight);
+                }
+            }
+            
+            // 3. P-wave activation (atrial depolarization)
+            const pCenter = p - Math.floor(0.16 * fs);
+            const pWidth = 25;
+            if (pCenter >= 0) {
+                const pWeight = (targetClass === 'IAVB') ? 0.92 : ((targetClass === 'AF') ? 0.12 : 0.42);
+                for (let j = Math.max(0, pCenter - pWidth * 2); j < Math.min(n, pCenter + pWidth * 2); j++) {
+                    const dist = Math.abs(j - pCenter);
+                    const w = Math.exp(-0.5 * Math.pow(dist / (pWidth * 0.75), 2));
+                    cam[j] = Math.max(cam[j], w * pWeight);
+                }
+            }
+        });
+    } else {
+        // Fallback for flat or noisy signals
+        for (let i = 1; i < n - 1; i++) {
+            const val = Math.abs(leadTwoSignal[i]);
+            if (val > 0.15) {
+                const spread = 35;
+                for (let j = Math.max(0, i - spread); j < Math.min(n, i + spread); j++) {
+                    const w = Math.exp(-0.5 * Math.pow((j - i) / 16, 2));
+                    cam[j] = Math.max(cam[j], val * w);
+                }
             }
         }
     }
-
-    // Baseline attribution
-    for (let i = 0; i < n; i++) {
-        if (targetClass === 'AF') {
-            cam[i] = Math.min(1.0, cam[i] * 0.85 + 0.12 * Math.random());
-        } else {
-            cam[i] = Math.min(1.0, cam[i] * 0.85);
+    
+    // Add baseline fibrillatory attention for AF
+    if (targetClass === 'AF') {
+        for (let i = 0; i < n; i++) {
+            cam[i] = Math.min(1.0, cam[i] * 0.82 + (0.16 * Math.abs(Math.sin(i * 0.08))));
         }
     }
-
+    
+    // Normalize to [0, 1]
+    let maxVal = 0;
+    for (let i = 0; i < n; i++) {
+        if (cam[i] > maxVal) maxVal = cam[i];
+    }
+    if (maxVal > 0) {
+        for (let i = 0; i < n; i++) {
+            cam[i] = parseFloat((cam[i] / maxVal).toFixed(4));
+        }
+    }
+    
     return Array.from(cam);
 }
 
 function generateClientShapData(targetClass, fiducials) {
-    const featureTemplates = [
-        { name: "RR Variability", fidKey: "mean_rr_interval", defaultShap: 0.312, unit: "ms" },
-        { name: "Heart Rate", fidKey: "heart_rate_bpm", defaultShap: 0.245, unit: "bpm" },
-        { name: "P-Wave Amplitude", fidKey: "pr_interval", defaultShap: -0.198, unit: "mV" },
-        { name: "QRS Duration", fidKey: "qrs_duration", defaultShap: 0.165, unit: "ms" },
-        { name: "PR Interval", fidKey: "pr_interval", defaultShap: -0.142, unit: "ms" },
-        { name: "ST-Segment Elevation", fidKey: "qt_interval", defaultShap: 0.118, unit: "mV" },
-        { name: "QT Interval", fidKey: "qt_interval", defaultShap: 0.095, unit: "ms" },
-        { name: "T-Wave Inversion Depth", fidKey: "qt_interval", defaultShap: -0.082, unit: "mV" },
-        { name: "R-Peak Slew Rate", fidKey: "heart_rate_bpm", defaultShap: 0.071, unit: "V/s" }
-    ];
-
-    if (targetClass === 'LBBB' || targetClass === 'RBBB') {
-        featureTemplates[0].name = "QRS Duration";
-        featureTemplates[0].defaultShap = 0.384;
-        featureTemplates[1].name = "R-Peak Notch";
-        featureTemplates[1].defaultShap = 0.295;
-    }
+    const hr = (fiducials && fiducials.heart_rate_bpm) ? fiducials.heart_rate_bpm : 75.0;
+    const rr = (fiducials && fiducials.mean_rr_interval) ? fiducials.mean_rr_interval : 0.800;
+    const qrs = (fiducials && fiducials.qrs_duration) ? fiducials.qrs_duration : 0.088;
+    const pr = (fiducials && fiducials.pr_interval) ? fiducials.pr_interval : 0.160;
+    const qt = (fiducials && fiducials.qt_interval) ? fiducials.qt_interval : 0.380;
+    const beats = (fiducials && fiducials.n_beats_detected) ? fiducials.n_beats_detected : 12;
 
     const topFeatures = {};
-    const beeswarm = [];
+    
+    // 1. Heart Rate (bpm)
+    let hrShap = 0.0;
+    if (targetClass === "STach") {
+        hrShap = 0.28 + Math.min(0.32, Math.max(0, (hr - 100) * 0.012));
+    } else if (targetClass === "SB") {
+        hrShap = 0.32 + Math.min(0.28, Math.max(0, (60 - hr) * 0.015));
+    } else if (targetClass === "AF") {
+        hrShap = 0.18 + (hr > 100 ? (hr - 100) * 0.005 : -0.05);
+    } else if (targetClass === "NSR") {
+        hrShap = 0.24 - Math.min(0.20, Math.abs(hr - 75) * 0.008);
+    } else {
+        hrShap = (hr - 75) * 0.003;
+    }
+    topFeatures["heart_rate_bpm"] = parseFloat(hrShap.toFixed(4));
 
-    featureTemplates.forEach((feat, fIdx) => {
-        const meanShap = Math.abs(feat.defaultShap);
-        topFeatures[feat.name.toLowerCase().replace(/\s+/g, '_')] = feat.defaultShap;
+    // 2. Mean RR Interval
+    let rrShap = 0.0;
+    if (targetClass === "AF") {
+        rrShap = 0.42 + Math.min(0.18, Math.abs(rr - 0.65) * 0.3);
+    } else if (targetClass === "SB") {
+        rrShap = 0.36 + Math.min(0.24, Math.max(0, (rr - 0.9) * 0.4));
+    } else if (targetClass === "STach") {
+        rrShap = -0.34 - Math.min(0.20, Math.max(0, (0.75 - rr) * 0.5));
+    } else if (targetClass === "NSR") {
+        rrShap = 0.28 - Math.min(0.20, Math.abs(rr - 0.8) * 0.4);
+    } else {
+        rrShap = (0.8 - rr) * 0.25;
+    }
+    topFeatures["mean_rr_interval"] = parseFloat(rrShap.toFixed(4));
 
-        // Generate 29 cohort test sample points
-        const cohortPoints = [];
-        for (let p = 0; p < 29; p++) {
-            const spread = (Math.random() - 0.48) * (meanShap * 1.8);
-            const featValNorm = Math.min(1.0, Math.max(0.0, 0.5 + spread / (meanShap * 2.2) + (Math.random() - 0.5) * 0.15));
-            cohortPoints.push({
-                shap_value: parseFloat((feat.defaultShap * 0.7 + spread).toFixed(4)),
-                feature_value_normalized: parseFloat(featValNorm.toFixed(3)),
-                density_jitter: parseFloat(((Math.random() - 0.5) * 0.36).toFixed(3))
-            });
-        }
+    // 3. QRS Duration
+    let qrsShap = 0.0;
+    if (targetClass === "LBBB" || targetClass === "RBBB" || targetClass === "NSIVCB") {
+        qrsShap = 0.45 + Math.min(0.25, Math.max(0, (qrs - 0.12) * 4.0));
+    } else if (targetClass === "NSR" || targetClass === "AF") {
+        qrsShap = -0.16 - Math.max(0, (qrs - 0.09) * 1.5);
+    } else {
+        qrsShap = (qrs > 0.11) ? 0.22 : -0.12;
+    }
+    topFeatures["qrs_duration"] = parseFloat(qrsShap.toFixed(4));
 
-        beeswarm.push({
-            feature_name: feat.name,
-            mean_abs_shap: parseFloat(meanShap.toFixed(4)),
-            patient_shap: feat.defaultShap,
-            patient_feature_value_normalized: 0.82,
-            cohort_points: cohortPoints
-        });
-    });
+    // 4. PR Interval
+    let prShap = 0.0;
+    if (targetClass === "IAVB") {
+        prShap = 0.52 + Math.min(0.25, Math.max(0, (pr - 0.20) * 4.5));
+    } else if (targetClass === "AF") {
+        prShap = -0.31;
+    } else if (targetClass === "NSR") {
+        prShap = 0.22 - Math.abs(pr - 0.16) * 1.8;
+    } else {
+        prShap = (pr > 0.20) ? 0.25 : -0.08;
+    }
+    topFeatures["pr_interval"] = parseFloat(prShap.toFixed(4));
 
-    beeswarm.sort((a, b) => b.mean_abs_shap - a.mean_abs_shap);
+    // 5. P-Wave Amplitude
+    let pAmpShap = (targetClass === "AF") ? -0.36 : ((targetClass === "PAC") ? 0.32 : ((targetClass === "NSR") ? 0.24 : 0.05));
+    topFeatures["p_wave_amplitude"] = parseFloat(pAmpShap.toFixed(4));
+
+    // 6. QT Interval
+    let qtShap = 0.0;
+    if (targetClass === "SB" || targetClass === "IAVB") {
+        qtShap = 0.14 + (qt > 0.42 ? 0.10 : 0.0);
+    } else if (targetClass === "STach") {
+        qtShap = -0.18;
+    } else {
+        qtShap = 0.09;
+    }
+    topFeatures["qt_interval"] = parseFloat(qtShap.toFixed(4));
+
+    // 7. ST-Segment Deviation
+    let stShap = (targetClass === "QAb" || targetClass === "TAb") ? 0.38 : ((targetClass === "LBBB") ? 0.22 : 0.06);
+    topFeatures["st_deviation"] = parseFloat(stShap.toFixed(4));
+
+    // 8. T-Wave Inversion Depth
+    let tShap = (targetClass === "TAb") ? 0.54 : ((targetClass === "QAb") ? 0.31 : ((targetClass === "LBBB") ? 0.26 : -0.09));
+    topFeatures["t_wave_inversion_depth"] = parseFloat(tShap.toFixed(4));
+
+    // 9. R-Peak Slew Rate
+    let slewShap = (targetClass === "LBBB" || targetClass === "RBBB") ? 0.34 : ((targetClass === "AF") ? 0.18 : 0.08);
+    topFeatures["r_peak_slew_rate"] = parseFloat(slewShap.toFixed(4));
+
+    // 10. RR Variability
+    let rrvShap = (targetClass === "AF") ? 0.48 : ((targetClass === "PAC") ? 0.35 : -0.22);
+    topFeatures["rr_variability"] = parseFloat(rrvShap.toFixed(4));
 
     return {
         available: true,
         target_class: targetClass,
         features: topFeatures,
         top_features: topFeatures,
-        fiducials: fiducials,
-        beeswarm: beeswarm
+        fiducials: fiducials
     };
 }
 
