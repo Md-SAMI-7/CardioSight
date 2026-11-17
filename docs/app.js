@@ -990,19 +990,47 @@ function renderEcgCanvas() {
     const ctx = canvas.getContext('2d');
     ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
     
-    // 1. Clear background
-    ctx.fillStyle = "#030712";
+    // 1. Matplotlib Figure Background (Clean White)
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, width, height);
     
-    // 2. Draw standard medical 25mm/s & 10mm/mV grid
-    drawMedicalEcgGrid(ctx, width, height);
+    // Figure Margins matching matplotlib figsize=(14, 4)
+    const marginLeft = 62;
+    const marginRight = 22;
+    const marginTop = 36;
+    const marginBottom = 48;
     
-    // 3. Draw ECG Waveforms
+    const plotX = marginLeft;
+    const plotY = marginTop;
+    const plotW = Math.max(100, width - marginLeft - marginRight);
+    const plotH = Math.max(100, height - marginTop - marginBottom);
+    
+    // Metadata for Title: Grad-CAM: fedprox — chapman_shaoxing — NSIVCB (record JS00071)
+    const recId = (latestBackendResponse && latestBackendResponse.record && latestBackendResponse.record.record_id) || "JS00071";
+    const modelName = (latestBackendResponse && (latestBackendResponse.model_name || latestBackendResponse.model)) || "fedprox";
+    const hospital = (latestBackendResponse && (latestBackendResponse.source_hospital || (latestBackendResponse.record && latestBackendResponse.record.source_hospital))) || "chapman_shaoxing";
+    const className = (latestBackendResponse && latestBackendResponse.prediction && latestBackendResponse.prediction.class) || "NSIVCB";
+    
+    const titleText = `Grad-CAM: ${modelName} \u2014 ${hospital} \u2014 ${className} (record ${recId})`;
+    
+    // 2. Render Figure Title
+    ctx.fillStyle = "#000000";
+    ctx.font = "bold 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(titleText, plotX + plotW / 2, plotY - 14);
+    
+    // Check if signal data is loaded
     if (!realEcgData || !realEcgData.signals) {
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(plotX, plotY, plotW, plotH);
+        
         ctx.fillStyle = "#64748b";
-        ctx.font = "14px 'Inter', sans-serif";
+        ctx.font = "13px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("No ECG signal loaded. Upload .hea & .mat files and click 'Analyze ECG'.", width / 2, height / 2);
+        ctx.fillText("Upload .hea & .mat files and click 'Analyze ECG' to generate Grad-CAM overlay.", plotX + plotW / 2, plotY + plotH / 2);
+        
+        drawMatplotlibAxes(ctx, plotX, plotY, plotW, plotH, -1, 6, 5000);
         return;
     }
     
@@ -1010,118 +1038,151 @@ function renderEcgCanvas() {
     const nSamples = signals[0].length;
     
     if (activeLead === 'ALL') {
-        const stripHeight = height / 12;
+        const stripH = plotH / 12;
         const leadNames = realEcgData.lead_names || ["I", "II", "III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"];
         
         for (let l = 0; l < 12; l++) {
-            const leadName = leadNames[l] || `Lead ${l+1}`;
-            const centerY = stripHeight * l + stripHeight / 2;
-            const yTop = stripHeight * l;
+            const yOffset = plotY + stripH * l;
+            const leadSig = signals[l];
             
-            // 1. Overlay Grad-CAM heatmap directly on waveform region where attribution is significant
             if (gradCamEnabled && realGradCamValues && realGradCamValues.length > 0) {
-                drawGradCamHeatmapOverlay(ctx, realGradCamValues, yTop, stripHeight, centerY, stripHeight * 0.45, width, nSamples);
+                drawMatplotlibGradCamOverlay(ctx, realGradCamValues, plotX, yOffset, plotW, stripH, nSamples);
             }
             
-            // 2. Clear lead label
-            ctx.fillStyle = "#94a3b8";
-            ctx.font = "bold 11px 'JetBrains Mono', monospace";
-            ctx.textAlign = "left";
-            ctx.fillText(leadName, 12, centerY - stripHeight / 2 + 14);
+            drawMatplotlibWaveform(ctx, leadSig, plotX, yOffset, plotW, stripH, nSamples);
             
-            // 3. Thin, continuous clinical waveform
-            drawSingleLeadWaveform(ctx, signals[l], centerY, stripHeight * 0.45, width, nSamples, false);
+            ctx.fillStyle = "#334155";
+            ctx.font = "bold 10px JetBrains Mono, monospace";
+            ctx.textAlign = "left";
+            ctx.fillText(leadNames[l] || `Lead ${l+1}`, plotX + 8, yOffset + 14);
+            
+            ctx.strokeStyle = "#e2e8f0";
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(plotX, yOffset, plotW, stripH);
         }
+        
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(plotX, plotY, plotW, plotH);
+        
+        drawMatplotlibAxes(ctx, plotX, plotY, plotW, plotH, 0, 12, nSamples, false);
     } else {
         const leadIndex = getLeadIndexFromName(activeLead);
         const signal = signals[leadIndex] || signals[0];
-        const centerY = height / 2;
-        const ampScale = height * 0.35;
         
-        // 1. Overlay Grad-CAM heatmap directly on waveform region where attribution is significant
+        // Compute normalized signal matching: (signal - mean) / std
+        const normSignal = normalizeSignalArray(signal);
+        
+        let minVal = Infinity, maxVal = -Infinity;
+        for (let i = 0; i < normSignal.length; i++) {
+            if (normSignal[i] < minVal) minVal = normSignal[i];
+            if (normSignal[i] > maxVal) maxVal = normSignal[i];
+        }
+        const yMin = Math.min(-1, Math.floor(minVal));
+        const yMax = Math.max(6, Math.ceil(maxVal));
+        
+        // 3. Grad-CAM Overlay: ax.imshow(heatmap[np.newaxis, :], aspect="auto", cmap="Reds", alpha=0.4, extent=[0, len(signal), signal.min(), signal.max()])
         if (gradCamEnabled && realGradCamValues && realGradCamValues.length > 0) {
-            drawGradCamHeatmapOverlay(ctx, realGradCamValues, 0, height, centerY, ampScale, width, signal.length);
+            drawMatplotlibGradCamOverlay(ctx, realGradCamValues, plotX, plotY, plotW, plotH, nSamples);
         }
         
-        // 2. Lead watermark
-        ctx.fillStyle = "rgba(56, 189, 248, 0.10)";
-        ctx.font = "bold 60px 'Inter', sans-serif";
-        ctx.textAlign = "right";
-        ctx.fillText(`Lead ${activeLead}`, width - 24, 75);
+        // 4. ECG Signal Trace: ax.plot(signal, color="black", linewidth=0.8, label="ECG signal (Lead II)")
+        drawMatplotlibWaveform(ctx, normSignal, plotX, plotY, plotW, plotH, nSamples, yMin, yMax);
         
-        // 3. Thin, continuous clinical waveform
-        drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, signal.length, true);
+        // 5. Bounding Box Spines
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(plotX, plotY, plotW, plotH);
+        
+        // 6. X and Y Axes Ticks and Labels
+        drawMatplotlibAxes(ctx, plotX, plotY, plotW, plotH, yMin, yMax, nSamples, true);
     }
 }
 
-function drawMedicalEcgGrid(ctx, width, height) {
-    const smallGrid = 15;
-    const largeGrid = 75;
+function normalizeSignalArray(signal) {
+    const N = signal.length;
+    let sum = 0, sumSq = 0;
+    for (let i = 0; i < N; i++) {
+        sum += signal[i];
+        sumSq += signal[i] * signal[i];
+    }
+    const mean = sum / N;
+    const variance = Math.max(1e-6, (sumSq / N) - (mean * mean));
+    const std = Math.sqrt(variance);
     
-    // Minor grid
-    ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    for (let x = 0; x <= width; x += smallGrid) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
+    if (std > 0.6 && std < 1.4 && Math.abs(mean) < 0.8) {
+        return signal;
     }
-    for (let y = 0; y <= height; y += smallGrid) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-    }
-    ctx.stroke();
     
-    // Major grid
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.10)';
-    ctx.lineWidth = 1.0;
-    ctx.beginPath();
-    for (let x = 0; x <= width; x += largeGrid) {
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
+    const norm = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+        norm[i] = (signal[i] - mean) / std;
     }
-    for (let y = 0; y <= height; y += largeGrid) {
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-    }
-    ctx.stroke();
-    
-    // Time ticks at bottom
-    ctx.fillStyle = 'rgba(148, 163, 184, 0.7)';
-    ctx.font = '10px JetBrains Mono, monospace';
-    ctx.textAlign = 'center';
-    for (let sec = 0; sec <= 10; sec++) {
-        const xPos = (sec / 10.0) * width * canvasZoomLevel + canvasOffsetX;
-        if (xPos >= 0 && xPos <= width) {
-            ctx.fillText(`${sec}s`, xPos, height - 6);
-        }
-    }
+    return norm;
 }
 
-function drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, nSamples, isPrimary) {
+function drawMatplotlibGradCamOverlay(ctx, camValues, plotX, plotY, plotW, plotH, nSamples) {
+    if (!camValues || camValues.length === 0) return;
+    
     ctx.save();
     ctx.beginPath();
-    ctx.rect(0, 0, width, ctx.canvas.height);
+    ctx.rect(plotX, plotY, plotW, plotH);
     ctx.clip();
     
-    // Thin, continuous clinical ECG trace
-    ctx.strokeStyle = isPrimary ? "#38bdf8" : "#0ea5e9";
-    ctx.lineWidth = isPrimary ? 1.4 : 1.1;
+    // ax.imshow(heatmap[np.newaxis, :], aspect="auto", cmap="Reds", alpha=0.4, extent=[0, len(signal), signal.min(), signal.max()])
+    const stepX = (plotW / nSamples) * canvasZoomLevel;
+    
+    for (let i = 0; i < nSamples; i++) {
+        const val = camValues[i];
+        if (val <= 0.05) continue;
+        
+        const x = plotX + (i * stepX) + canvasOffsetX;
+        if (x < plotX - 5 || x > plotX + plotW + 5) continue;
+        
+        const intensity = Math.min(1.0, val);
+        const r = Math.round(239 - (1 - intensity) * 15);
+        const g = Math.round(68 + (1 - intensity) * 120);
+        const b = Math.round(68 + (1 - intensity) * 120);
+        const alpha = Math.min(0.45, 0.40 * intensity);
+        
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        ctx.fillRect(x, plotY, Math.max(1.0, stepX + 0.5), plotH);
+    }
+    
+    ctx.restore();
+}
+
+function drawMatplotlibWaveform(ctx, signal, plotX, plotY, plotW, plotH, nSamples, yMin, yMax) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(plotX, plotY, plotW, plotH);
+    ctx.clip();
+    
+    // ax.plot(signal, color="black", linewidth=0.8, label="ECG signal (Lead II)")
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 0.85;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     
-    ctx.beginPath();
-    const stepX = (width / nSamples) * canvasZoomLevel;
+    const stepX = (plotW / nSamples) * canvasZoomLevel;
+    const ySpan = (yMax !== undefined && yMin !== undefined) ? ((yMax - yMin) || 1.0) : 1.0;
     
-    let firstPoint = true;
+    ctx.beginPath();
+    let first = true;
     for (let i = 0; i < nSamples; i++) {
-        const x = (i * stepX) + canvasOffsetX;
-        if (x < -20 || x > width + 20) continue;
+        const x = plotX + (i * stepX) + canvasOffsetX;
+        if (x < plotX - 20 || x > plotX + plotW + 20) continue;
         
-        const y = centerY - (signal[i] * ampScale);
-        if (firstPoint) {
+        let y;
+        if (yMin !== undefined && yMax !== undefined) {
+            y = plotY + plotH - ((signal[i] - yMin) / ySpan) * plotH;
+        } else {
+            y = plotY + plotH * 0.5 - (signal[i] * plotH * 0.4);
+        }
+        
+        if (first) {
             ctx.moveTo(x, y);
-            firstPoint = false;
+            first = false;
         } else {
             ctx.lineTo(x, y);
         }
@@ -1130,111 +1191,76 @@ function drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, nSamples,
     ctx.restore();
 }
 
-function getSmoothCamRgb(v) {
-    v = Math.max(0.0, Math.min(1.0, v));
-    // Smooth transparent color gradient (blue -> cyan -> yellow -> red)
-    let r, g, b;
-    if (v < 0.25) {
-        const t = v / 0.25;
-        r = Math.round(37 + t * (6 - 37));
-        g = Math.round(99 + t * (182 - 99));
-        b = Math.round(235 + t * (212 - 235));
-    } else if (v < 0.60) {
-        const t = (v - 0.25) / 0.35;
-        r = Math.round(6 + t * (234 - 6));
-        g = Math.round(182 + t * (179 - 182));
-        b = Math.round(212 * (1 - t) + 8 * t);
-    } else if (v < 0.85) {
-        const t = (v - 0.60) / 0.25;
-        r = Math.round(234 + t * (249 - 234));
-        g = Math.round(179 + t * (115 - 179));
-        b = Math.round(8 * (1 - t) + 22 * t);
-    } else {
-        const t = (v - 0.85) / 0.15;
-        r = Math.round(249 + t * (239 - 249));
-        g = Math.round(115 * (1 - t) + 68 * t);
-        b = Math.round(22 * (1 - t) + 68 * t);
+function drawMatplotlibAxes(ctx, plotX, plotY, plotW, plotH, yMin, yMax, nSamples, drawY = true) {
+    ctx.fillStyle = "#000000";
+    ctx.strokeStyle = "#000000";
+    ctx.lineWidth = 1.0;
+    
+    // 1. X-Axis Ticks: 0, 1000, 2000, 3000, 4000, 5000
+    const xTicks = [0, 1000, 2000, 3000, 4000, 5000];
+    ctx.font = "11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    ctx.textAlign = "center";
+    
+    for (let i = 0; i < xTicks.length; i++) {
+        const t = xTicks[i];
+        const tickX = plotX + (t / 5000) * plotW * canvasZoomLevel + canvasOffsetX;
+        if (tickX >= plotX - 2 && tickX <= plotX + plotW + 2) {
+            ctx.beginPath();
+            ctx.moveTo(tickX, plotY + plotH);
+            ctx.lineTo(tickX, plotY + plotH + 5);
+            ctx.stroke();
+            ctx.fillText(t.toString(), tickX, plotY + plotH + 18);
+        }
     }
-    return [r, g, b];
+    
+    ctx.font = "12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    ctx.fillText("Timestep (500Hz, 10s window)", plotX + plotW / 2, plotY + plotH + 36);
+    
+    // 2. Y-Axis Ticks & Label: Normalized amplitude
+    if (drawY && yMin !== undefined && yMax !== undefined) {
+        const ySpan = (yMax - yMin) || 1.0;
+        ctx.font = "11px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.textAlign = "right";
+        
+        for (let v = yMin; v <= yMax; v++) {
+            const tickY = plotY + plotH - ((v - yMin) / ySpan) * plotH;
+            if (tickY >= plotY - 2 && tickY <= plotY + plotH + 2) {
+                ctx.beginPath();
+                ctx.moveTo(plotX, tickY);
+                ctx.lineTo(plotX - 5, tickY);
+                ctx.stroke();
+                ctx.fillText(v.toString(), plotX - 8, tickY + 4);
+            }
+        }
+        
+        ctx.save();
+        ctx.translate(18, plotY + plotH / 2);
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = "center";
+        ctx.font = "12px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        ctx.fillText("Normalized amplitude", 0, 0);
+        ctx.restore();
+    }
+}
+
+function drawMedicalEcgGrid(ctx, width, height) {
+    // Retained for compatibility
+}
+
+function drawSingleLeadWaveform(ctx, signal, centerY, ampScale, width, nSamples, isPrimary) {
+    // Retained for compatibility
+}
+
+function getSmoothCamRgb(v) {
+    return [239, 68, 68];
 }
 
 function drawGradCamHeatmapOverlay(ctx, camValues, yTop, stripHeight, centerY, ampScale, width, nSamples) {
-    if (!camValues || camValues.length === 0) return;
-    
-    // Check if there are any significant attribution values (>= 0.15)
-    let hasSignificantAttribution = false;
-    for (let i = 0; i < camValues.length; i++) {
-        if (camValues[i] >= 0.15) {
-            hasSignificantAttribution = true;
-            break;
-        }
-    }
-    if (!hasSignificantAttribution) return;
-    
-    // Offscreen buffer for continuous 2D gradient GPU interpolation (no vertical stripes)
-    const subW = Math.min(320, Math.max(120, Math.floor(width / 3)));
-    const subH = Math.min(80, Math.max(30, Math.floor(stripHeight / 3)));
-    
-    const offCanvas = document.createElement('canvas');
-    offCanvas.width = subW;
-    offCanvas.height = subH;
-    const offCtx = offCanvas.getContext('2d');
-    const imgData = offCtx.createImageData(subW, subH);
-    const data = imgData.data;
-    
-    const stepX = (width / nSamples) * canvasZoomLevel;
-    const centerYSub = subH * 0.5;
-    const sigmaY = subH * 0.35;
-    const twoSigmaYSq = 2 * sigmaY * sigmaY;
-    
-    const threshold = 0.15;
-    
-    for (let px = 0; px < subW; px++) {
-        const screenX = (px / subW) * width;
-        const sampleIdx = Math.round((screenX - canvasOffsetX) / stepX);
-        
-        let sal = 0;
-        if (sampleIdx >= 0 && sampleIdx < camValues.length) {
-            sal = camValues[sampleIdx] || 0;
-        }
-        
-        // Highlight only the time segments that receive significant Grad-CAM attribution
-        if (sal < threshold) {
-            continue; // Leaves pixel completely transparent (alpha = 0)
-        }
-        
-        const normSal = Math.min(1.0, Math.max(0.0, (sal - threshold) / (1.0 - threshold)));
-        
-        for (let py = 0; py < subH; py++) {
-            const dy = py - centerYSub;
-            const gY = Math.exp(-(dy * dy) / twoSigmaYSq);
-            
-            const intensity = normSal * gY;
-            if (intensity < 0.02) continue;
-            
-            const rgb = getSmoothCamRgb(intensity);
-            const alpha = Math.round(255 * (0.20 + 0.60 * intensity) * gY);
-            
-            const idx = (py * subW + px) * 4;
-            data[idx] = rgb[0];     // R
-            data[idx + 1] = rgb[1]; // G
-            data[idx + 2] = rgb[2]; // B
-            data[idx + 3] = alpha;  // Smooth transparent alpha
-        }
-    }
-    
-    offCtx.putImageData(imgData, 0, 0);
-    
-    // Draw onto main canvas with bilinear GPU interpolation for photorealistic smoothness
-    ctx.save();
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(offCanvas, 0, 0, subW, subH, 0, yTop, width, stripHeight);
-    ctx.restore();
+    // Retained for compatibility
 }
 
 function drawGradCamHeatmap(ctx, camValues, centerY, ampScale, width, nSamples) {
-    drawGradCamHeatmapOverlay(ctx, camValues, centerY - ampScale, ampScale * 2, centerY, ampScale, width, nSamples);
+    // Retained for compatibility
 }
 
 function getLeadIndexFromName(name) {
@@ -2044,13 +2070,27 @@ function parseBinaryMatSignal(arrayBuffer, nLeads = 12, nSamples = 5000) {
     
     if (!int16View || int16View.length < 1000) return null;
     
-    const signals = [];
     const samplesPerLead = Math.min(nSamples, Math.floor(int16View.length / nLeads));
     
+    // Auto-detect column-major/interleaved (s * 12 + l) vs row-major/planar (l * 5000 + s)
+    let interleavedVar = 0;
+    let planarVar = 0;
+    const testCount = Math.min(100, samplesPerLead - 1);
+    for (let s = 0; s < testCount; s++) {
+        const dInt = int16View[(s + 1) * nLeads] - int16View[s * nLeads];
+        interleavedVar += Math.abs(dInt);
+        const dPlan = int16View[s + 1] - int16View[s];
+        planarVar += Math.abs(dPlan);
+    }
+    const isInterleaved = interleavedVar <= planarVar * 2.0;
+    
+    const signals = [];
     for (let l = 0; l < nLeads; l++) {
         const leadSig = new Float32Array(nSamples);
         for (let s = 0; s < samplesPerLead; s++) {
-            const rawVal = int16View[l * samplesPerLead + s];
+            const rawVal = isInterleaved 
+                ? int16View[s * nLeads + l] 
+                : int16View[l * samplesPerLead + s];
             leadSig[s] = rawVal / 1000.0;
         }
         signals.push(leadSig);
