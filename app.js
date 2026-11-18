@@ -1005,8 +1005,8 @@ function renderEcgCanvas() {
     const plotW = Math.max(100, width - marginLeft - marginRight);
     const plotH = Math.max(100, height - marginTop - marginBottom);
     
-    // Title: Grad-CAM: NSIVCB (record JS00071)
-    const recId = (latestBackendResponse && latestBackendResponse.record && latestBackendResponse.record.record_id) || "JS00071";
+    // Title: Grad-CAM: SB (record Q2079)
+    const recId = (latestBackendResponse && latestBackendResponse.record && latestBackendResponse.record.record_id) || (uploadedHeaFile ? getFileStem(uploadedHeaFile.name) : "JS00071");
     const className = (latestBackendResponse && latestBackendResponse.prediction && latestBackendResponse.prediction.class) || "NSIVCB";
     
     const titleText = `Grad-CAM: ${className} (record ${recId})`;

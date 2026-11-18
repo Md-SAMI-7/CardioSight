@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cardiosight-v2.14.0';
+const CACHE_NAME = 'cardiosight-v2.15.0';
 
 self.addEventListener('install', (e) => {
     self.skipWaiting();
