@@ -1005,13 +1005,11 @@ function renderEcgCanvas() {
     const plotW = Math.max(100, width - marginLeft - marginRight);
     const plotH = Math.max(100, height - marginTop - marginBottom);
     
-    // Metadata for Title: Grad-CAM: fedprox — chapman_shaoxing — NSIVCB (record JS00071)
+    // Title: Grad-CAM: NSIVCB (record JS00071)
     const recId = (latestBackendResponse && latestBackendResponse.record && latestBackendResponse.record.record_id) || "JS00071";
-    const modelName = (latestBackendResponse && (latestBackendResponse.model_name || latestBackendResponse.model)) || "fedprox";
-    const hospital = (latestBackendResponse && (latestBackendResponse.source_hospital || (latestBackendResponse.record && latestBackendResponse.record.source_hospital))) || "chapman_shaoxing";
     const className = (latestBackendResponse && latestBackendResponse.prediction && latestBackendResponse.prediction.class) || "NSIVCB";
     
-    const titleText = `Grad-CAM: ${modelName} \u2014 ${hospital} \u2014 ${className} (record ${recId})`;
+    const titleText = `Grad-CAM: ${className} (record ${recId})`;
     
     // 2. Render Figure Title
     ctx.fillStyle = "#000000";
